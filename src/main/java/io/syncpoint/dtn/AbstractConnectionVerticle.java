@@ -1,5 +1,7 @@
 package io.syncpoint.dtn;
 
+import io.syncpoint.dtn.api.ApiStatusResponse;
+import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Handler;
@@ -10,6 +12,9 @@ import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public abstract class AbstractConnectionVerticle extends AbstractVerticle{
 
     final String apiHost = "192.168.168.27";
@@ -18,6 +23,44 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
     State state = State.DISCONNECTED;
     Logger LOGGER;
     NetSocket dtnSocket;
+
+    private Map<State, Handler<Buffer>> handlerRegistry = new HashMap<>();
+
+    public AbstractConnectionVerticle() {
+
+        addHandler(State.SWITCHING, buffer -> {
+            LOGGER.debug("received data of length " + buffer.length());
+            LOGGER.debug(buffer.toString());
+
+            ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
+            if (StatusCode.API_STATUS_OK == response.getCode()) {
+                become(State.READY);
+            }
+            else {
+                LOGGER.warn("switching command failed: " + response);
+            }
+        });
+
+        addHandler(State.READY, buffer -> {
+            LOGGER.debug("received data of length " + buffer.length());
+            LOGGER.debug(buffer.toString());
+        });
+    }
+
+    void addHandler(State state, Handler<Buffer> handler) {
+        handlerRegistry.put(state, handler);
+    }
+
+    Handler<Buffer> getHandler(State state) {
+        if (! handlerRegistry.containsKey(state)) {
+            return buffer -> {
+                LOGGER.debug("[DEFAULT HANDLER] received data of length " + buffer.length());
+                LOGGER.debug(buffer.toString());
+            };
+        }
+
+        return handlerRegistry.get(state);
+    }
 
     /**
      * connects to the given api host and port
@@ -51,9 +94,9 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
 
     void become(State newState) {
         state = newState;
-        dtnSocket.handler(getSocketHandler());
+        dtnSocket.handler(getHandler(state));
     }
 
-    abstract Handler<Buffer> getSocketHandler();
+    //abstract Handler<Buffer> getSocketHandler();
 
 }

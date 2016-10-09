@@ -3,8 +3,6 @@ package io.syncpoint.dtn;
 import io.syncpoint.dtn.api.ApiStatusResponse;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
-import io.vertx.core.Handler;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.logging.LoggerFactory;
 
 public final class DtnNotificationListener extends AbstractConnectionVerticle {
@@ -12,6 +10,7 @@ public final class DtnNotificationListener extends AbstractConnectionVerticle {
     public DtnNotificationListener() {
         super();
         LOGGER = LoggerFactory.getLogger(DtnNotificationListener.class);
+        registerStateHandler();
     }
 
     @Override
@@ -29,45 +28,33 @@ public final class DtnNotificationListener extends AbstractConnectionVerticle {
         LOGGER.warn(this.getClass().getName() + " was stopped");
     }
 
-    @Override
-    Handler<Buffer> getSocketHandler() {
-        switch (state) {
-            case CONNECTED: {
-                return buffer -> {
-                    LOGGER.debug("received data of length " + buffer.length());
-                    LOGGER.debug(buffer.toString());
+    private void registerStateHandler() {
 
-                    become(State.SWITCHING);
-                    dtnSocket.write("protocol event\n");
-                };
-            }
-            case SWITCHING: {
-                return buffer -> {
-                    LOGGER.debug("received data of length " + buffer.length());
-                    LOGGER.debug(buffer.toString());
+        addHandler(State.CONNECTED, buffer -> {
+            LOGGER.debug("received data of length " + buffer.length());
+            LOGGER.debug(buffer.toString());
 
-                    ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-                    if (StatusCode.API_STATUS_OK == response.getCode()) {
-                        become(State.READY);
-                    }
-                    else {
-                        LOGGER.warn("switching command failed: " + response);
-                    }
-                };
+            become(State.SWITCHING);
+            dtnSocket.write("protocol event\n");
+        });
+
+        addHandler(State.SWITCHING, buffer -> {
+            LOGGER.debug("received data of length " + buffer.length());
+            LOGGER.debug(buffer.toString());
+
+            ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
+            if (StatusCode.API_STATUS_OK == response.getCode()) {
+                become(State.READY);
             }
-            case READY: {
-                return buffer -> {
-                    LOGGER.debug("received data of length " + buffer.length());
-                    LOGGER.debug(buffer.toString());
-                };
+            else {
+                LOGGER.warn("switching command failed: " + response);
             }
-            default: {
-                return buffer -> {
-                    LOGGER.debug("received data of length " + buffer.length());
-                    LOGGER.debug(buffer.toString());
-                };
-            }
-        }
+        });
+
+        addHandler(State.READY, buffer -> {
+            LOGGER.debug("received data of length " + buffer.length());
+            LOGGER.debug(buffer.toString());
+        });
     }
 
 }
