@@ -7,27 +7,19 @@ import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.logging.LoggerFactory;
 
-public final class DtnNotificationListener extends AbstractConnectionVerticle {
+public final class DciDtnForwarder extends AbstractConnectionVerticle {
 
-    public DtnNotificationListener() {
+    public DciDtnForwarder() {
         super();
-        LOGGER = LoggerFactory.getLogger(DtnNotificationListener.class);
+        LOGGER = LoggerFactory.getLogger(DciDtnForwarder.class);
     }
 
     @Override
     public void start() {
+
         connect();
     }
 
-    @Override
-    public void stop() {
-        if (dtnSocket != null) {
-            dtnSocket.end();
-            dtnSocket.close();
-            LOGGER.debug("closed dtn socket");
-        }
-        LOGGER.warn(this.getClass().getName() + " was stopped");
-    }
 
     @Override
     Handler<Buffer> getSocketHandler() {
@@ -38,7 +30,7 @@ public final class DtnNotificationListener extends AbstractConnectionVerticle {
                     LOGGER.debug(buffer.toString());
 
                     become(State.SWITCHING);
-                    dtnSocket.write("protocol event\n");
+                    dtnSocket.write("protocol extended\n");
                 };
             }
             case SWITCHING: {
@@ -69,5 +61,4 @@ public final class DtnNotificationListener extends AbstractConnectionVerticle {
             }
         }
     }
-
 }
