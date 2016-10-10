@@ -17,7 +17,7 @@ import java.util.Map;
 
 public abstract class AbstractConnectionVerticle extends AbstractVerticle{
 
-    final String apiHost = "192.168.168.27";
+    final String apiHost = "172.16.125.133";
     final int apiPort = 4550;
 
     State state = State.DISCONNECTED;
