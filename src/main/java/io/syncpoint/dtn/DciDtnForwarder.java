@@ -9,7 +9,7 @@ public final class DciDtnForwarder extends AbstractConnectionVerticle {
         super();
         LOGGER = LoggerFactory.getLogger(DciDtnForwarder.class);
 
-        addHandler(State.CONNECTED, buffer -> {
+        addSocketHandler(State.CONNECTED, buffer -> {
             LOGGER.debug("received data of length " + buffer.length());
             LOGGER.debug(buffer.toString());
 

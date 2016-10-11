@@ -13,12 +13,12 @@ public final class MipProxy extends AbstractVerticle{
     static final Logger LOGGER = LoggerFactory.getLogger(MipProxy.class);
 
     final Class[] verticles = {
-            LocalDciListener.class,
-            DtnNotificationListener.class,
-            DciDtnForwarder.class
-    };
+            //LocalDciListener.class,
+            //DtnNotificationListener.class,
+            DtnBundleLoader.class,
+            //DciDtnForwarder.class
 
-    //CountDownLatch pendingDeployment = new CountDownLatch(verticles.length);
+    };
 
     @Override
     public void start(Future<Void> future) {
@@ -29,20 +29,12 @@ public final class MipProxy extends AbstractVerticle{
             vertx.deployVerticle(verticle.getName(), deployment -> {
                 if (deployment.succeeded()) {
                     LOGGER.info("verticle deployment succeeded: " + deployment.result());
-                    //pendingDeployment.countDown();
                 }
                 else {
                     LOGGER.warn("failed to deploy verticle: " + deployment.cause());
                 }
             });
         }
-/*
-        try {
-            pendingDeployment.await(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            LOGGER.error("failed to deploy all verticles within 5 seconds, shutting down");
-            vertx.close();
-        }
-        */
+
     }
 }

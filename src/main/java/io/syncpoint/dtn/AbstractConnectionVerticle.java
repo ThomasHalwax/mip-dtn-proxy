@@ -24,11 +24,11 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
     Logger LOGGER;
     NetSocket dtnSocket;
 
-    private Map<State, Handler<Buffer>> handlerRegistry = new HashMap<>();
+    private Map<State, Handler<Buffer>> socketHandlerRegistry = new HashMap<>();
 
     public AbstractConnectionVerticle() {
 
-        addHandler(State.SWITCHING, buffer -> {
+        addSocketHandler(State.SWITCHING, buffer -> {
             LOGGER.debug("received data of length " + buffer.length());
             LOGGER.debug(buffer.toString());
 
@@ -41,25 +41,26 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
             }
         });
 
-        addHandler(State.READY, buffer -> {
+        addSocketHandler(State.READY, buffer -> {
             LOGGER.debug("received data of length " + buffer.length());
             LOGGER.debug(buffer.toString());
         });
     }
 
-    void addHandler(State state, Handler<Buffer> handler) {
-        handlerRegistry.put(state, handler);
+    void addSocketHandler(State state, Handler<Buffer> handler) {
+        socketHandlerRegistry.put(state, handler);
     }
 
-    Handler<Buffer> getHandler(State state) {
-        if (! handlerRegistry.containsKey(state)) {
+    Handler<Buffer> getSocketHandler(State state) {
+        if (! socketHandlerRegistry.containsKey(state)) {
+            LOGGER.debug("return the default handler for state " + state);
             return buffer -> {
                 LOGGER.debug("[DEFAULT HANDLER] received data of length " + buffer.length());
                 LOGGER.debug(buffer.toString());
             };
         }
 
-        return handlerRegistry.get(state);
+        return socketHandlerRegistry.get(state);
     }
 
     /**
@@ -93,8 +94,9 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
 
 
     void become(State newState) {
+        LOGGER.debug("transition from " + state + " to " + newState);
         state = newState;
-        dtnSocket.handler(getHandler(state));
+        dtnSocket.handler(getSocketHandler(state));
     }
 
     //abstract Handler<Buffer> getSocketHandler();

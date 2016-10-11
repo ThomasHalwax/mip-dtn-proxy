@@ -4,5 +4,6 @@ public enum State {
     DISCONNECTED,
     CONNECTED,
     SWITCHING,
-    READY
+    READY,
+    RECEIVING
 }
