@@ -1,20 +1,22 @@
 package io.syncpoint.dtn.api;
 
-public final class ApiStatusResponse {
+public final class ApiMessage {
 
     private final StatusCode code;
     private final String message;
 
+
     // private constructor
-    private ApiStatusResponse(StatusCode code, String message) {
+    private ApiMessage(StatusCode code, String message) {
         this.code = code;
         this.message = message;
     }
 
-    public static ApiStatusResponse parse(String apiResponse) {
+    public static ApiMessage parse(String apiResponse) {
         StatusCode code = StatusCode.codeOf(Integer.parseInt(apiResponse.substring(0, 3)));
-        String message = apiResponse.substring(4);
-        return new ApiStatusResponse(code, message);
+
+        String message = apiResponse.replace(code.apiResponse(), "").trim();
+        return new ApiMessage(code, message);
     }
 
     public StatusCode getCode() {

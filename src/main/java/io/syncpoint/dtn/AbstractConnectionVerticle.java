@@ -1,6 +1,6 @@
 package io.syncpoint.dtn;
 
-import io.syncpoint.dtn.api.ApiStatusResponse;
+import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
 import io.vertx.core.AbstractVerticle;
@@ -32,8 +32,8 @@ public abstract class AbstractConnectionVerticle extends AbstractVerticle{
             LOGGER.debug("received data of length " + buffer.length());
             LOGGER.debug(buffer.toString());
 
-            ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-            if (StatusCode.API_STATUS_OK == response.getCode()) {
+            ApiMessage response = ApiMessage.parse(buffer.toString());
+            if (StatusCode.OK == response.getCode()) {
                 become(State.READY);
             }
             else {

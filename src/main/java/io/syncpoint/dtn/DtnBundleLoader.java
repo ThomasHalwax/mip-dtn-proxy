@@ -1,6 +1,6 @@
 package io.syncpoint.dtn;
 
-import io.syncpoint.dtn.api.ApiStatusResponse;
+import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
 import io.vertx.core.AbstractVerticle;
@@ -8,6 +8,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.NetSocket;
+import io.vertx.core.parsetools.RecordParser;
 import org.slf4j.Logger;
 
 import java.util.function.Function;
@@ -15,7 +16,6 @@ import java.util.function.Function;
 public final class DtnBundleLoader extends AbstractVerticle {
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnBundleLoader.class);
     private NetSocket dtnSocket;
-    private State state = State.DISCONNECTED;
 
     public DtnBundleLoader(){
         super();
@@ -46,8 +46,8 @@ public final class DtnBundleLoader extends AbstractVerticle {
             return f;
         };
 
-        Function<NetSocket, Future<NetSocket>> switchProtocol = apiCommand("protocol extended", StatusCode.API_STATUS_OK);
-        Function<NetSocket, Future<NetSocket>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.API_STATUS_OK);
+        Function<NetSocket, Future<NetSocket>> switchProtocol = apiCommand("protocol extended", StatusCode.OK);
+        Function<NetSocket, Future<NetSocket>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.OK);
 
         connectToApi
                 .apply("172.16.125.133")
@@ -68,22 +68,54 @@ public final class DtnBundleLoader extends AbstractVerticle {
     }
 
     private void become(State newState) {
-        LOGGER.debug("transition from {} to {}", this.state, newState);
-        this.state = newState;
+        LOGGER.debug("transition to {}", newState);
         this.dtnSocket.handler(getSocketHandler(newState));
     }
 
-    private Handler<Buffer> getSocketHandler(State newState) {
-        return buffer -> {
-            LOGGER.debug("received {}", buffer);
-        };
+    private Handler<Buffer> getSocketHandler(State state) {
+        switch (state) {
+            case READY: return buffer -> {
+                ApiMessage response = ApiMessage.parse(buffer.toString());
+                if (response.getCode() == StatusCode.NOTIFY_BUNDLE) {
+                    LOGGER.debug("parsing bundle information: " + response.getMessage());
+                    String bundleId = response.getMessage().split(" ")[0];
+
+                    Function<NetSocket, Future<NetSocket>> loadBundleToQueue = apiCommand("bundle load queue", StatusCode.OK);
+                    Function<NetSocket, Future<String>> getBundle = apiQuery("bundle get", StatusCode.OK);
+
+                    loadBundleToQueue
+                            .apply(dtnSocket)
+                            .compose(getBundle)
+                            .setHandler(loaded -> {
+                                if (loaded.succeeded()) {
+                                    LOGGER.debug(loaded.result());
+                                }
+                                else {
+                                    LOGGER.warn("buuhh!");
+                                }
+                            });
+
+
+                }
+                else {
+                    LOGGER.debug("NOT INTERESTED in {}", response.getCode().apiResponse());
+                }
+            };
+
+            default: return buffer -> {
+                LOGGER.debug("received {}", buffer);
+            };
+        }
+
+
+
     }
 
     private Function<NetSocket, Future<NetSocket>> apiCommand(String commandText, StatusCode expectedStatusCode) {
         return netSocket -> {
             Future<NetSocket> f = Future.future();
             netSocket.write(commandText + "\n").handler(buffer -> {
-                ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
+                ApiMessage response = ApiMessage.parse(buffer.toString());
                 if (response.getCode() == expectedStatusCode) {
                     LOGGER.debug("{} completed", commandText);
                     f.complete(netSocket);
@@ -95,6 +127,23 @@ public final class DtnBundleLoader extends AbstractVerticle {
             return f;
         };
     }
+
+    private Function<NetSocket, Future<String>> apiQuery(String commandText, StatusCode expectedStatusCode) {
+        StringBuilder bundle = new StringBuilder();
+
+        return netSocket -> {
+            Future<String> f = Future.future();
+            netSocket.write(commandText + "\n").handler(buffer -> {
+                bundle.append(buffer);
+                if (buffer.toString().equals("\n")) {
+                    f.complete(bundle.toString());
+                }
+            });
+            return f;
+        };
+    }
+
+
 
 
 }
