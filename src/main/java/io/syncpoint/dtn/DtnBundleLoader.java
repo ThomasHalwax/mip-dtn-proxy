@@ -3,21 +3,22 @@ package io.syncpoint.dtn;
 import io.syncpoint.dtn.api.ApiStatusResponse;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
-import io.vertx.core.CompositeFuture;
+import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.Handler;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.NetSocket;
+import org.slf4j.Logger;
 
-import java.security.Provider;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Function;
 
-public final class DtnBundleLoader extends AbstractConnectionVerticle {
+public final class DtnBundleLoader extends AbstractVerticle {
+    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnBundleLoader.class);
+    private NetSocket dtnSocket;
+    private State state = State.DISCONNECTED;
+
     public DtnBundleLoader(){
         super();
-        LOGGER = LoggerFactory.getLogger(DtnBundleLoader.class);
-        //registerHandler();
     }
 
     @Override
@@ -38,101 +39,62 @@ public final class DtnBundleLoader extends AbstractConnectionVerticle {
 
                 }
                 else {
+                    LOGGER.warn("connect failed ", attempt.cause());
                     f.fail(attempt.cause());
                 }
             });
-
-
             return f;
         };
 
-        Function<NetSocket, Future<NetSocket>> switchProtocol = netSocket -> {
-            Future<NetSocket> f = Future.future();
-            netSocket.write("protocol extended\n").handler(buffer -> {
-                ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-               if (response.getCode() == StatusCode.API_STATUS_OK) {
-                   LOGGER.debug("switched to extended");
-                   f.complete(netSocket);
-               }
-                else {
-                   f.fail("unexpected response: " + response);
-               }
-            });
+        Function<NetSocket, Future<NetSocket>> switchProtocol = apiCommand("protocol extended", StatusCode.API_STATUS_OK);
+        Function<NetSocket, Future<NetSocket>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.API_STATUS_OK);
 
-            return f;
+        connectToApi
+                .apply("172.16.125.133")
+                .compose(switchProtocol)
+                .compose(addRegistration)
+                .setHandler(h -> {
+            if (h.succeeded()) {
+                LOGGER.debug("becoming a listener ...");
+                this.dtnSocket = h.result();
+                become(State.READY);
+            }
+            else {
+                LOGGER.warn("failed to connect: ", h.cause());
+            }
+        });
+
+
+    }
+
+    private void become(State newState) {
+        LOGGER.debug("transition from {} to {}", this.state, newState);
+        this.state = newState;
+        this.dtnSocket.handler(getSocketHandler(newState));
+    }
+
+    private Handler<Buffer> getSocketHandler(State newState) {
+        return buffer -> {
+            LOGGER.debug("received {}", buffer);
         };
+    }
 
-        Function<NetSocket, Future<NetSocket>> addRegistration = netSocket -> {
+    private Function<NetSocket, Future<NetSocket>> apiCommand(String commandText, StatusCode expectedStatusCode) {
+        return netSocket -> {
             Future<NetSocket> f = Future.future();
-            netSocket.write("registration add dtn://tolerator/dem/dci\n").handler(buffer -> {
+            netSocket.write(commandText + "\n").handler(buffer -> {
                 ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-                if (response.getCode() == StatusCode.API_STATUS_OK) {
-                    LOGGER.debug("added registration");
+                if (response.getCode() == expectedStatusCode) {
+                    LOGGER.debug("{} completed", commandText);
                     f.complete(netSocket);
-                }
-                else {
+                } else {
+                    LOGGER.warn("{} failed with unexpected response: {}", commandText, response);
                     f.fail("unexpected response: " + response);
                 }
             });
-
             return f;
         };
-
-        connectToApi.apply("172.16.125.133").compose(switchProtocol).compose(addRegistration).setHandler(h -> {
-            if (h.succeeded()) {
-                LOGGER.debug("becoming a listener ...");
-            }
-        });
-
-
-
-
-
-
-
-
     }
 
-
-
-    private void registerHandler() {
-        addSocketHandler(State.CONNECTED, buffer -> {
-            become(State.SWITCHING);
-            LOGGER.debug("sending protocol extended");
-            dtnSocket.write("protocol extended\n");
-        });
-
-        addSocketHandler(State.SWITCHING, buffer -> {
-            LOGGER.debug("verifying api response to " + buffer.toString());
-            ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-            if (StatusCode.API_STATUS_OK == response.getCode()) {
-                become(State.READY);
-                dtnSocket.write("noop\n");
-            }
-            else {
-                LOGGER.warn("switching command failed: " + response);
-            }
-        });
-
-        addSocketHandler(State.READY, buffer -> {
-            LOGGER.debug("received " + buffer);
-            become(State.RECEIVING);
-            LOGGER.debug("sending registration");
-            dtnSocket.write("registration add dtn://tolerator/dem/dci\n");
-        });
-
-        addSocketHandler(State.RECEIVING, buffer -> {
-            LOGGER.debug("received " + buffer.toString());
-            ApiStatusResponse response = ApiStatusResponse.parse(buffer.toString());
-            if (StatusCode.API_STATUS_OK == response.getCode()) {
-                LOGGER.info("last command succeeded: " + response);
-            }
-            else {
-                LOGGER.warn("last command failed: " + response);
-            }
-        });
-
-
-    }
 
 }
