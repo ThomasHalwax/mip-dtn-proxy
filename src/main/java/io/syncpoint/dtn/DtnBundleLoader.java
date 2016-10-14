@@ -78,24 +78,31 @@ public final class DtnBundleLoader extends AbstractVerticle {
                 ApiMessage response = ApiMessage.parse(buffer.toString());
                 if (response.getCode() == StatusCode.NOTIFY_BUNDLE) {
                     LOGGER.debug("parsing bundle information: " + response.getMessage());
-                    String bundleId = response.getMessage().split(" ")[0];
 
                     Function<NetSocket, Future<NetSocket>> loadBundleToQueue = apiCommand("bundle load queue", StatusCode.OK);
-                    Function<NetSocket, Future<String>> getBundle = apiQuery("bundle get", StatusCode.OK);
+                    Function<NetSocket, Future<NetSocket>> freeBundle = apiCommand("bundle free", StatusCode.OK);
+                    Function<NetSocket, Future<Bundle>> getBundle = apiQuery("bundle get", StatusCode.OK);
 
                     loadBundleToQueue
                             .apply(dtnSocket)
                             .compose(getBundle)
-                            .setHandler(loaded -> {
-                                if (loaded.succeeded()) {
-                                    LOGGER.debug(loaded.result());
+                            .setHandler(loadedBundle -> {
+                                if (loadedBundle.succeeded()) {
+                                    freeBundle.apply(dtnSocket)
+                                            .setHandler(allDone -> {
+                                        if (allDone.succeeded()) {
+                                            LOGGER.info("freed bundle");
+
+                                        }
+                                        else {
+                                            LOGGER.warn("freed bundle failed!");
+                                        }
+                                    });
                                 }
                                 else {
-                                    LOGGER.warn("buuhh!");
+                                    LOGGER.warn("failed to load bundle");
                                 }
                             });
-
-
                 }
                 else {
                     LOGGER.debug("NOT INTERESTED in {}", response.getCode().apiResponse());
@@ -114,7 +121,7 @@ public final class DtnBundleLoader extends AbstractVerticle {
     private Function<NetSocket, Future<NetSocket>> apiCommand(String commandText, StatusCode expectedStatusCode) {
         return netSocket -> {
             Future<NetSocket> f = Future.future();
-            netSocket.write(commandText + "\n").handler(buffer -> {
+            netSocket.write(commandText + "\n").exceptionHandler(Future::failedFuture).handler(buffer -> {
                 ApiMessage response = ApiMessage.parse(buffer.toString());
                 if (response.getCode() == expectedStatusCode) {
                     LOGGER.debug("{} completed", commandText);
@@ -128,19 +135,55 @@ public final class DtnBundleLoader extends AbstractVerticle {
         };
     }
 
-    private Function<NetSocket, Future<String>> apiQuery(String commandText, StatusCode expectedStatusCode) {
-        StringBuilder bundle = new StringBuilder();
+    private Function<NetSocket, Future<Bundle>> apiQuery(String commandText, StatusCode expectedStatusCode) {
 
         return netSocket -> {
-            Future<String> f = Future.future();
-            netSocket.write(commandText + "\n").handler(buffer -> {
-                bundle.append(buffer);
-                if (buffer.toString().equals("\n")) {
-                    f.complete(bundle.toString());
-                }
-            });
-            return f;
+            QueryParser queryParser = new QueryParser(expectedStatusCode);
+            //Future<Bundle> f = Future.future();
+            netSocket.write(commandText + "\n").handler(buffer -> queryParser.handle(buffer));
+            //return f;
+            return queryParser.future();
         };
+    }
+
+    class QueryParser {
+
+        private final StatusCode expectedStatusCode;
+        private final Future<Bundle> parsedBundle = Future.future();
+        private int lineNumber  = 0;
+
+        private RecordParser recordParser = RecordParser.newDelimited("\n", buffer -> {
+            handleInternal(buffer);
+        });
+
+        QueryParser(StatusCode expectedStatusCode) {
+            this.expectedStatusCode = expectedStatusCode;
+        }
+
+        Future<Bundle> future() { return this.parsedBundle; }
+        void handle(Buffer buffer) {
+            recordParser.handle(buffer);
+        }
+
+        void handleInternal(Buffer buffer) {
+            LOGGER.debug("handling line {} with content {}", lineNumber, buffer.toString());
+            if (lineNumber == 0) {
+                final ApiMessage apiMessage = ApiMessage.parse(buffer.toString());
+                if (apiMessage.getCode() != expectedStatusCode) {
+                    this.parsedBundle.fail("unexpected api response: " + apiMessage.toString());
+                }
+            }
+
+            // TODO : create json object from received buffers
+            if (lineNumber == 148) {
+                LOGGER.debug("done :-) ");
+                this.parsedBundle.complete(new Bundle());
+            }
+
+            lineNumber++;
+
+        }
+
     }
 
 
