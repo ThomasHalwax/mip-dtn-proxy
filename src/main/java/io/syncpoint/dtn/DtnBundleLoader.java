@@ -4,7 +4,6 @@ import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
@@ -24,6 +23,12 @@ public final class DtnBundleLoader extends AbstractVerticle {
 
     @Override
     public void start() {
+
+        // register self handler
+        vertx.eventBus().consumer(self(), messageToSelf -> {
+            LOGGER.debug("received a message to self: {}", messageToSelf.toString());
+        });
+
 
         Function<String, Future<Void>> connectToApi = host -> {
             Future<Void> f = Future.future();
@@ -49,6 +54,10 @@ public final class DtnBundleLoader extends AbstractVerticle {
         Function<Void, Future<Void>> switchProtocol = apiCommand("protocol extended", StatusCode.OK);
         Function<Void, Future<Void>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.OK);
 
+        // TODO: when there are persisted bundles the daemon
+        // will send their ID after registration
+        // idea is to publish the id on the eventbus to self()
+        // and process them later
         connectToApi
                 .apply("172.16.125.133")
                 .compose(switchProtocol)
@@ -56,7 +65,6 @@ public final class DtnBundleLoader extends AbstractVerticle {
                 .setHandler(h -> {
                     LOGGER.debug("READY to interact with the IBRDTN API");
                 });
-
     }
 
     private void become(State newState) {
@@ -79,7 +87,6 @@ public final class DtnBundleLoader extends AbstractVerticle {
                     loadBundleToQueue.apply(null)
                             .compose(getBundle).setHandler(bundle -> {
                                 if (bundle.succeeded()) {
-                                    // free the bundle
                                     freeBundle.apply(null).setHandler(allDone -> {
                                         LOGGER.debug("all done");
                                     });
@@ -108,6 +115,7 @@ public final class DtnBundleLoader extends AbstractVerticle {
                 ApiMessage response = ApiMessage.parse(buffer.toString());
                 if (response.getCode() == expectedStatusCode) {
                     LOGGER.debug("{} completed", commandText);
+                    LOGGER.debug("response was {}", response.getMessage());
                     become(State.READY);
                     f.complete();
                 } else {
@@ -168,5 +176,10 @@ public final class DtnBundleLoader extends AbstractVerticle {
             lineNumber++;
 
         }
+    }
+
+
+    private String self() {
+        return deploymentID();
     }
 }

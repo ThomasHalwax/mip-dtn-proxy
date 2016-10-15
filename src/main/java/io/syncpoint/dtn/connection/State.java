@@ -5,5 +5,4 @@ public enum State {
     CONNECTED,
     SWITCHING,
     READY,
-    AWAIT_RESPONSE
 }
