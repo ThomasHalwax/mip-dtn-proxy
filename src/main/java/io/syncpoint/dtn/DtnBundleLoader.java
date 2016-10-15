@@ -4,6 +4,7 @@ import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.connection.State;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
@@ -24,19 +25,18 @@ public final class DtnBundleLoader extends AbstractVerticle {
     @Override
     public void start() {
 
-        Function<String, Future<NetSocket>> connectToApi = host -> {
-            Future<NetSocket> f = Future.future();
+        Function<String, Future<Void>> connectToApi = host -> {
+            Future<Void> f = Future.future();
 
             vertx.createNetClient().connect(4550, host, attempt -> {
                 if (attempt.succeeded()) {
                     LOGGER.debug("connected");
-                    NetSocket socket = attempt.result();
-                    socket.handler(buffer -> {
+                    dtnSocket = attempt.result();
+                    dtnSocket.handler(buffer -> {
                        LOGGER.debug("onConnect: " + buffer.toString());
-                        f.complete(attempt.result());
+                        f.complete();
                     });
-                    socket.write("\n");
-
+                    dtnSocket.write("\n");
                 }
                 else {
                     LOGGER.warn("connect failed ", attempt.cause());
@@ -46,24 +46,16 @@ public final class DtnBundleLoader extends AbstractVerticle {
             return f;
         };
 
-        Function<NetSocket, Future<NetSocket>> switchProtocol = apiCommand("protocol extended", StatusCode.OK);
-        Function<NetSocket, Future<NetSocket>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.OK);
+        Function<Void, Future<Void>> switchProtocol = apiCommand("protocol extended", StatusCode.OK);
+        Function<Void, Future<Void>> addRegistration = apiCommand("registration add dtn://tolerator/dem/dci", StatusCode.OK);
 
         connectToApi
                 .apply("172.16.125.133")
                 .compose(switchProtocol)
                 .compose(addRegistration)
                 .setHandler(h -> {
-            if (h.succeeded()) {
-                LOGGER.debug("becoming a listener ...");
-                this.dtnSocket = h.result();
-                become(State.READY);
-            }
-            else {
-                LOGGER.warn("failed to connect: ", h.cause());
-            }
-        });
-
+                    LOGGER.debug("READY to interact with the IBRDTN API");
+                });
 
     }
 
@@ -79,30 +71,24 @@ public final class DtnBundleLoader extends AbstractVerticle {
                 if (response.getCode() == StatusCode.NOTIFY_BUNDLE) {
                     LOGGER.debug("parsing bundle information: " + response.getMessage());
 
-                    Function<NetSocket, Future<NetSocket>> loadBundleToQueue = apiCommand("bundle load queue", StatusCode.OK);
-                    Function<NetSocket, Future<NetSocket>> freeBundle = apiCommand("bundle free", StatusCode.OK);
-                    Function<NetSocket, Future<Bundle>> getBundle = apiQuery("bundle get", StatusCode.OK);
+                    Function<Void, Future<Void>> loadBundleToQueue = apiCommand("bundle load queue", StatusCode.OK);
+                    Function<Void, Future<Void>> freeBundle = apiCommand("bundle free", StatusCode.OK);
+                    Function<Void, Future<Bundle>> getBundle = apiQuery("bundle get", StatusCode.OK);
 
-                    loadBundleToQueue
-                            .apply(dtnSocket)
-                            .compose(getBundle)
-                            .setHandler(loadedBundle -> {
-                                if (loadedBundle.succeeded()) {
-                                    freeBundle.apply(dtnSocket)
-                                            .setHandler(allDone -> {
-                                        if (allDone.succeeded()) {
-                                            LOGGER.info("freed bundle");
 
-                                        }
-                                        else {
-                                            LOGGER.warn("freed bundle failed!");
-                                        }
+                    loadBundleToQueue.apply(null)
+                            .compose(getBundle).setHandler(bundle -> {
+                                if (bundle.succeeded()) {
+                                    // free the bundle
+                                    freeBundle.apply(null).setHandler(allDone -> {
+                                        LOGGER.debug("all done");
                                     });
                                 }
                                 else {
-                                    LOGGER.warn("failed to load bundle");
+                                    LOGGER.warn("failed to get the bundle");
                                 }
                             });
+
                 }
                 else {
                     LOGGER.debug("NOT INTERESTED in {}", response.getCode().apiResponse());
@@ -113,19 +99,17 @@ public final class DtnBundleLoader extends AbstractVerticle {
                 LOGGER.debug("received {}", buffer);
             };
         }
-
-
-
     }
 
-    private Function<NetSocket, Future<NetSocket>> apiCommand(String commandText, StatusCode expectedStatusCode) {
-        return netSocket -> {
-            Future<NetSocket> f = Future.future();
-            netSocket.write(commandText + "\n").exceptionHandler(Future::failedFuture).handler(buffer -> {
+    private Function<Void, Future<Void>> apiCommand(String commandText, StatusCode expectedStatusCode) {
+        return empty -> {
+            Future<Void> f = Future.future();
+            dtnSocket.write(commandText + "\n").exceptionHandler(Future::failedFuture).handler(buffer -> {
                 ApiMessage response = ApiMessage.parse(buffer.toString());
                 if (response.getCode() == expectedStatusCode) {
                     LOGGER.debug("{} completed", commandText);
-                    f.complete(netSocket);
+                    become(State.READY);
+                    f.complete();
                 } else {
                     LOGGER.warn("{} failed with unexpected response: {}", commandText, response);
                     f.fail("unexpected response: " + response);
@@ -135,12 +119,12 @@ public final class DtnBundleLoader extends AbstractVerticle {
         };
     }
 
-    private Function<NetSocket, Future<Bundle>> apiQuery(String commandText, StatusCode expectedStatusCode) {
+    private Function<Void, Future<Bundle>> apiQuery(String commandText, StatusCode expectedStatusCode) {
 
-        return netSocket -> {
+        return empty -> {
             QueryParser queryParser = new QueryParser(expectedStatusCode);
             //Future<Bundle> f = Future.future();
-            netSocket.write(commandText + "\n").handler(buffer -> queryParser.handle(buffer));
+            dtnSocket.write(commandText + "\n").handler(buffer -> queryParser.handle(buffer));
             //return f;
             return queryParser.future();
         };
@@ -178,15 +162,11 @@ public final class DtnBundleLoader extends AbstractVerticle {
             if (lineNumber == 148) {
                 LOGGER.debug("done :-) ");
                 this.parsedBundle.complete(new Bundle());
+                return;
             }
 
             lineNumber++;
 
         }
-
     }
-
-
-
-
 }
