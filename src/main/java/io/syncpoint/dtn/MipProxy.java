@@ -23,6 +23,8 @@ public final class MipProxy extends AbstractVerticle{
     public void start(Future<Void> future) {
         final JsonObject config = config();
 
+        // TODO: build some kind of supervisor who monitors the created verticles and restarts them on failure
+
         for (Class verticle : verticles) {
             LOGGER.debug("deploying verticle " + verticle.getName());
             vertx.deployVerticle(verticle.getName(), deployment -> {
@@ -34,6 +36,8 @@ public final class MipProxy extends AbstractVerticle{
                 }
             });
         }
+
+
 
     }
 }

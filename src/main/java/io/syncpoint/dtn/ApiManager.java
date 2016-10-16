@@ -27,6 +27,7 @@ public final class ApiManager extends AbstractVerticle {
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
 
+        LOGGER.debug("connectiong to {}:4550", DTN_HOST);
         vertx.createNetClient(options).connect(4550, DTN_HOST, attempt -> {
             if (attempt.succeeded()) {
                 LOGGER.debug("connected");
@@ -48,6 +49,9 @@ public final class ApiManager extends AbstractVerticle {
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
+                LOGGER.warn("undeploying {} with id {}", ApiManager.class.getName(), deploymentID());
+                vertx.undeploy(deploymentID());
+
             }
         });
     }
