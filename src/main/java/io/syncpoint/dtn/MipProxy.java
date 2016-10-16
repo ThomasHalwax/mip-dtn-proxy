@@ -15,8 +15,6 @@ public final class MipProxy extends AbstractVerticle{
     final Class[] verticles = {
             //LocalDciListener.class,
             //DtnNotificationListener.class,
-            //DtnBundleLoader.class,
-            //DciDtnForwarder.class,
             ApiManager.class
 
     };

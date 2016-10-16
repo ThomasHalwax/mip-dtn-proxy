@@ -23,7 +23,8 @@ public final class LocalDciListener extends AbstractVerticle {
            }
            else {
                LOGGER.error("failed to listen", listenOnSocketResult.cause());
-               vertx.close();
+               LOGGER.warn("undeploying self");
+               vertx.undeploy(deploymentID());
            }
         });
     }

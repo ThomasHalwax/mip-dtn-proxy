@@ -11,8 +11,15 @@ import org.slf4j.Logger;
 
 public final class ApiManager extends AbstractVerticle {
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ApiManager.class);
+    private static final String DTN_HOST = "172.16.125.133";
+    private static final String DTN_REGISTRATION_ADDRESS = "dtn://tolerator/dem/dci";
+
+
+
     private NetSocket dtnSocket;
     private JsonObject currentBundle = new JsonObject();
+
+
 
     @Override
     public void start() {
@@ -20,7 +27,7 @@ public final class ApiManager extends AbstractVerticle {
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
 
-        vertx.createNetClient(options).connect(4550, "172.16.125.133", attempt -> {
+        vertx.createNetClient(options).connect(4550, DTN_HOST, attempt -> {
             if (attempt.succeeded()) {
                 LOGGER.debug("connected");
                 dtnSocket = attempt.result();
@@ -37,12 +44,26 @@ public final class ApiManager extends AbstractVerticle {
                     recordParser.handle(buffer);
                 });
                 send("protocol extended");
-                send("registration add dtn://tolerator/dem/dci");
+                send("registration add " + DTN_REGISTRATION_ADDRESS);
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
             }
         });
+    }
+
+    @Override
+    public void stop() {
+        dtnSocket.handler(buffer -> {
+            LOGGER.debug(buffer.toString());
+        });
+
+        send("registration del " + DTN_REGISTRATION_ADDRESS);
+        send("exit");
+
+        dtnSocket.end();
+        dtnSocket.close();
+        LOGGER.debug("socket closed");
     }
 
 
