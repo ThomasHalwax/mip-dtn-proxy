@@ -10,15 +10,20 @@ import org.slf4j.LoggerFactory;
 public final class DemProxyServer extends AbstractVerticle {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DemProxyServer.class);
+    private final String remoteDci;
 
     private NetServer proxy;
     private String nodeId;
     private String supervisorAddress;
 
+    public DemProxyServer(String remoteDci, String supervisorAddress) {
+
+        this.remoteDci = remoteDci;
+        this.supervisorAddress = supervisorAddress;
+    }
+
     @Override
     public void start(Future<Void> startup) {
-        initialize();
-
         NetServerOptions options = new NetServerOptions();
         vertx.createNetServer(options).listen(instance -> {
             if (instance.succeeded()) {
@@ -29,21 +34,6 @@ public final class DemProxyServer extends AbstractVerticle {
                 vertx.eventBus().send(supervisorAddress, proxyInfo);
             }
         });
-    }
-
-    private void initialize() {
-        nodeId = config().getString("nodeId");
-        if (nodeId == null || nodeId.length() != 9 || (!isNumeric(nodeId))) {
-            throw new RuntimeException("invalid nodeId");
-        }
-        supervisorAddress = config().getString("supervisorAddress");
-        if (supervisorAddress == null || supervisorAddress.length() == 0) {
-            throw new RuntimeException("supervisorAddress is invalid");
-        }
-    }
-
-    private boolean isNumeric(String s) {
-        return s.matches("[-+]?\\d*\\.?\\d+");
     }
 
 }

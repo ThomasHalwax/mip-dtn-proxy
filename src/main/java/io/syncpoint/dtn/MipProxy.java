@@ -10,7 +10,7 @@ public final class MipProxy extends AbstractVerticle{
     static final Logger LOGGER = LoggerFactory.getLogger(MipProxy.class);
 
     final Class[] verticles = {
-            //DciListener.class,
+            DciListener.class,
             //DtnNotificationListener.class,
             DtnApiHandler.class
 
