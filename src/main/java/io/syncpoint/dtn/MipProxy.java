@@ -6,16 +6,13 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 public final class MipProxy extends AbstractVerticle{
     static final Logger LOGGER = LoggerFactory.getLogger(MipProxy.class);
 
     final Class[] verticles = {
-            //LocalDciListener.class,
+            //DciListener.class,
             //DtnNotificationListener.class,
-            ApiManager.class
+            DtnApiHandler.class
 
     };
 
@@ -36,8 +33,5 @@ public final class MipProxy extends AbstractVerticle{
                 }
             });
         }
-
-
-
     }
 }

@@ -9,12 +9,15 @@ import io.vertx.core.net.NetSocket;
 import io.vertx.core.parsetools.RecordParser;
 import org.slf4j.Logger;
 
-public final class ApiManager extends AbstractVerticle {
-    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ApiManager.class);
+public final class DtnApiHandler extends AbstractVerticle {
+    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnApiHandler.class);
     private static final String DTN_HOST = "172.16.125.133";
-    private static final String DTN_REGISTRATION_ADDRESS = "dtn://tolerator/dem/dci";
 
+    // other nodes broadcast their DCI announce to this address
+    private static final String DTN_DCI_ANNOUNCE_ADDRESS = "dtn://dem/dci/announce";
 
+    // this is reply address for DCI reply messages
+    private static final String DTN_DCI_REPLY_ADDRESS = "dtn://dem/dci/reply";
 
     private NetSocket dtnSocket;
     private JsonObject currentBundle = new JsonObject();
@@ -45,11 +48,12 @@ public final class ApiManager extends AbstractVerticle {
                     recordParser.handle(buffer);
                 });
                 send("protocol extended");
-                send("registration add " + DTN_REGISTRATION_ADDRESS);
+                send("registration add " + DTN_DCI_ANNOUNCE_ADDRESS);
+                send("registration add " + DTN_DCI_REPLY_ADDRESS);
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
-                LOGGER.warn("undeploying {} with id {}", ApiManager.class.getName(), deploymentID());
+                LOGGER.warn("undeploying {} with id {}", DtnApiHandler.class.getName(), deploymentID());
                 vertx.undeploy(deploymentID());
 
             }
@@ -62,7 +66,7 @@ public final class ApiManager extends AbstractVerticle {
             LOGGER.debug(buffer.toString());
         });
 
-        send("registration del " + DTN_REGISTRATION_ADDRESS);
+        send("registration del " + DTN_DCI_ANNOUNCE_ADDRESS);
         send("exit");
 
         dtnSocket.end();

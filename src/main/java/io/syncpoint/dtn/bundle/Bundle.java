@@ -1,4 +1,4 @@
-package io.syncpoint.dtn;
+package io.syncpoint.dtn.bundle;
 
 import io.vertx.core.json.JsonObject;
 
