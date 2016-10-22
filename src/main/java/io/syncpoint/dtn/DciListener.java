@@ -64,7 +64,8 @@ public final class DciListener extends AbstractVerticle {
         sendingSocketOptions.setBroadcast(true);
         sendingSocket = vertx.createDatagramSocket(sendingSocketOptions);
 
-        // consume remote announcements, modify DCI content and broadcast message to DCI listening port
+        // consume remote announcements (which are sent to local),
+        // modify DCI content and broadcast message to DCI listening port
         // target of the message are all local dem instances
         vertx.eventBus().localConsumer("local://dem/dci/announce", message -> {
 
