@@ -90,11 +90,12 @@ public final class DtnApiHandler extends AbstractVerticle {
     private void handleData(String message) {
         LOGGER.debug(message);
         if (INITIAL_API_MESSAGE.equals(message)) return;
+
+        currentBundle.addData(message);
         if (currentBundle.done()) {
             vertx.eventBus().publish("bundle.received", currentBundle);
             currentBundle = new Bundle();
         }
-        currentBundle.addData(message);
     }
 
     private void send(String request) {
