@@ -32,9 +32,6 @@ public final class Bundle extends JsonObject {
                 }
                 else {
                     final String[] headerLine = data.split(": ");
-                    if (headerLine.length != 2) {
-                        LOGGER.warn("splitting failed for {} with length {}", data, data.length());
-                    }
                     header.put(headerLine[0], headerLine[1]);
                 }
                 break;
