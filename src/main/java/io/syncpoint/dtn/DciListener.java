@@ -38,7 +38,9 @@ public final class DciListener extends AbstractVerticle {
         listeningSocket.listen(DCI_PORT, "0.0.0.0", instance -> {
            if (instance.succeeded()) {
                LOGGER.debug("dci listener listens on {}", listeningSocket.localAddress().toString());
+
                listeningSocket.handler(datagramPacket -> {
+
                    if (myIpAddresses.contains(datagramPacket.sender().host())) {
                        LOGGER.debug("ignoring broadcast from myself");
                        return;
@@ -46,21 +48,17 @@ public final class DciListener extends AbstractVerticle {
                    LOGGER.info("received dci on local network");
 
                    String dci = datagramPacket.data().toString();
-                   DeliveryOptions dciDeliveryOptions = new DeliveryOptions();
+
                    if (dci.contains("ANNOUNCE")) {
                        // DCI announcement from a locally connected DEM
                        LOGGER.debug("DCI ANNOUNCE");
-                       //localDemInstances.add(datagramPacket.sender().host());
-                       //TODO: set header value to indicate broadcast
-                       //dciDeliveryOptions.addHeader("ENDPOINT", "GROUP");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci, dciDeliveryOptions);
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci);
                    }
                    else if (dci.contains("REPLY")) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
                        LOGGER.debug("DCI REPLY");
-                       dciDeliveryOptions.addHeader("ENDPOINT", "SINGLETON");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci, dciDeliveryOptions);
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci);
                    }
                    else {
                        LOGGER.debug("INVALID DCI? {}", dci);
@@ -97,20 +95,6 @@ public final class DciListener extends AbstractVerticle {
 
     }
 
-    @Override
-    public void stop() {
-        if (listeningSocket != null) {
-            listeningSocket.close(closed -> {
-                if (closed.succeeded()) {
-                    LOGGER.debug("dci listener was successfully closed");
-                }
-                else {
-                    LOGGER.error("wtf? closing dci listener failed: ", closed.cause());
-                }
-            });
-        }
-    }
-
     private void broadcastDci(Buffer dciBuffer) {
         sendingSocket.send(dciBuffer, 13152, "255.255.255.255", broadcastHandler -> {
             if (broadcastHandler.succeeded()) {
@@ -121,7 +105,6 @@ public final class DciListener extends AbstractVerticle {
             }
         });
     }
-
 
     private Set<String> getLocalIpAddresses() {
         Set<String> ipList = new HashSet<>();
