@@ -1,12 +1,20 @@
 package io.syncpoint.dtn;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.net.NetServer;
+import io.vertx.core.net.NetSocket;
 
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Base64;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,6 +22,8 @@ public final class DciListener extends AbstractVerticle {
 
     static final Logger LOGGER = LoggerFactory.getLogger(DciListener.class);
     static final int DCI_PORT = 13152;
+
+    private final Set<String> myIpAddresses = getLocalIpAddresses();
 
     private final Set<String> localDemInstances = new HashSet<>();
 
@@ -31,6 +41,10 @@ public final class DciListener extends AbstractVerticle {
            if (instance.succeeded()) {
                LOGGER.debug("dci listener listens on {}", listeningSocket.localAddress().toString());
                listeningSocket.handler(datagramPacket -> {
+                   if (myIpAddresses.contains(datagramPacket.sender().host())) {
+                       LOGGER.debug("ignoring broadcast from myself");
+                       return;
+                   }
                    LOGGER.info("received dci on local network");
                    String dci = datagramPacket.data().toString();
                    DeliveryOptions dciDeliveryOptions = new DeliveryOptions();
@@ -68,9 +82,9 @@ public final class DciListener extends AbstractVerticle {
         // modify DCI content and broadcast message to DCI listening port
         // target of the message are all local dem instances
         vertx.eventBus().localConsumer("local://dem/dci/announce", message -> {
-
-            String messageBody = message.body().toString();
-            sendingSocket.send(messageBody, 13152, "255.255.255.255", broadcastHandler -> {
+            final byte[] rawMessage = Base64.getDecoder().decode(message.body().toString());
+            Buffer b = Buffer.buffer(rawMessage);
+            sendingSocket.send(b, 13152, "255.255.255.255", broadcastHandler -> {
                 if (broadcastHandler.succeeded()) {
                     LOGGER.debug("broadcasted DCI");
                 }
@@ -105,5 +119,27 @@ public final class DciListener extends AbstractVerticle {
                 }
             });
         }
+    }
+
+
+    private Set<String> getLocalIpAddresses() {
+        Set<String> ipList = new HashSet<>();
+        try {
+            final Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            while(networkInterfaces.hasMoreElements())
+            {
+                NetworkInterface networkInterface = networkInterfaces.nextElement();
+                Enumeration ipAddresses = networkInterface.getInetAddresses();
+                while (ipAddresses.hasMoreElements())
+                {
+                    InetAddress i = (InetAddress) ipAddresses.nextElement();
+                    ipList.add(i.getHostAddress());
+                }
+            }
+        } catch (SocketException networkException) {
+            LOGGER.error("failed to enumerate network interfaces", networkException);
+        }
+
+        return ipList;
     }
 }

@@ -2,7 +2,7 @@ package io.syncpoint.dtn;
 
 import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
-import io.syncpoint.dtn.bundle.Bundle;
+import io.syncpoint.dtn.bundle.DtnBundleParser;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
@@ -22,7 +22,7 @@ public final class DtnApiHandler extends AbstractVerticle {
     private static final String DTN_DCI_REPLY_ADDRESS = "dtn://batallion/dem/dci/reply";
 
     private NetSocket dtnSocket;
-    private Bundle currentBundle = new Bundle();
+    private DtnBundleParser currentBundle = new DtnBundleParser();
 
 
 
@@ -52,6 +52,7 @@ public final class DtnApiHandler extends AbstractVerticle {
                 send("protocol extended");
                 send("registration add " + DTN_DCI_ANNOUNCE_ADDRESS);
                 send("registration add " + DTN_DCI_REPLY_ADDRESS);
+                //send("registration list");
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
@@ -93,8 +94,8 @@ public final class DtnApiHandler extends AbstractVerticle {
 
         currentBundle.addData(message);
         if (currentBundle.done()) {
-            vertx.eventBus().publish("bundle.received", currentBundle);
-            currentBundle = new Bundle();
+            vertx.eventBus().publish("bundle.received", currentBundle.copy());
+            currentBundle = new DtnBundleParser();
         }
     }
 

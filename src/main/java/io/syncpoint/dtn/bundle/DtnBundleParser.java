@@ -5,19 +5,18 @@ import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class Bundle extends JsonObject {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Bundle.class);
+public final class DtnBundleParser extends JsonObject {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DtnBundleParser.class);
 
 
     private final JsonArray blocks = new JsonArray();
     private final JsonObject header = new JsonObject();
-    private final StringBuilder currentPayload = new StringBuilder();
 
+    private StringBuilder currentPayload = new StringBuilder();
     private JsonObject currentBlock = new JsonObject();
     private BundleSection bundleSection = BundleSection.HEADER;
-    private Integer blocksAdded = 0;
 
-    public Bundle() {
+    public DtnBundleParser() {
         this.put("header", header);
         this.put("blocks", blocks);
     }
@@ -32,6 +31,7 @@ public final class Bundle extends JsonObject {
                 }
                 else {
                     final String[] headerLine = data.split(": ");
+                    if (headerLine.length != 2) return;
                     header.put(headerLine[0], headerLine[1]);
                 }
                 break;
@@ -43,6 +43,7 @@ public final class Bundle extends JsonObject {
                 }
                 else {
                     final String[] blockHeaderLine = data.split(": ");
+                    if (blockHeaderLine.length != 2) return;
                     currentBlock.put(blockHeaderLine[0], blockHeaderLine[1]);
                 }
                 break;
@@ -51,11 +52,9 @@ public final class Bundle extends JsonObject {
                 if (data.length() == 0) {
                     currentBlock.put("payload", currentPayload.toString());
                     blocks.add(currentBlock);
-                    blocksAdded++;
                     if (moreBlocks()) {
                         currentBlock = new JsonObject();
-                        blocksAdded = 0;
-                        currentBlock.clear();
+                        currentPayload = new StringBuilder();
                         return;
                     }
                     else {
@@ -82,7 +81,7 @@ public final class Bundle extends JsonObject {
 
 
     private boolean moreBlocks() {
-        if (header.getString("Blocks").equals(blocksAdded.toString())) {
+        if (Integer.parseInt(header.getString("Blocks")) == blocks.size()) {
             return false;
         }
         return true;

@@ -56,6 +56,7 @@ public enum Flags {
     DTNSEC_STATUS_CONFIDENTIAL(29),
     DTNSEC_STATUS_AUTHENTICATED(30),
     COMPRESSION_REQUEST(31);
+
     private int offset;
 
     Flags(int offset) {
@@ -65,20 +66,4 @@ public enum Flags {
     public int getOffset() {
         return offset;
     }
-
-    /*
-    public void setFlag(Flags flag, boolean value) {
-
-        if (value) {
-            procFlags |= 0b1L << flag.getOffset();
-        } else {
-            procFlags &= ~(0b1L << flag.getOffset());
-        }
-    }
-    */
-    /*
-    public Boolean getFlag(Flags flag) {
-        return (flag.getOffset() & this.procFlags) > 0;
-    }
-    */
 }
