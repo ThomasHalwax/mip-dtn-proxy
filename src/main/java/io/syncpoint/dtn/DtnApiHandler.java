@@ -12,14 +12,14 @@ import org.slf4j.Logger;
 public final class DtnApiHandler extends AbstractVerticle {
 
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnApiHandler.class);
-    private static final String DTN_HOST = "172.16.125.133";
+    private static final String DTN_API_HOST = "172.16.125.133";
     private static final String INITIAL_API_MESSAGE = "IBR-DTN 1.0.1 (build 1da5501) API 1.0.1";
 
     // other nodes broadcast their DCI announce to this address
     private static final String DTN_DCI_ANNOUNCE_ADDRESS = "dtn://bataillon/dem/dci/announce";
 
     // this is reply address for DCI reply messages
-    private static final String DTN_DCI_REPLY_ADDRESS = "dtn://batallion/dem/dci/reply";
+    private static final String DTN_DCI_REPLY_ADDRESS = "dtn://bataillon/dem/dci/reply";
 
     private NetSocket dtnSocket;
     private DtnBundleParser currentBundle = new DtnBundleParser();
@@ -32,8 +32,8 @@ public final class DtnApiHandler extends AbstractVerticle {
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
 
-        LOGGER.debug("connecting to {}:4550", DTN_HOST);
-        vertx.createNetClient(options).connect(4550, DTN_HOST, attempt -> {
+        LOGGER.debug("connecting to {}:4550", DTN_API_HOST);
+        vertx.createNetClient(options).connect(4550, DTN_API_HOST, attempt -> {
             if (attempt.succeeded()) {
                 LOGGER.debug("connected");
                 dtnSocket = attempt.result();
@@ -51,8 +51,7 @@ public final class DtnApiHandler extends AbstractVerticle {
                 });
                 send("protocol extended");
                 send("registration add " + DTN_DCI_ANNOUNCE_ADDRESS);
-                //send("registration add " + DTN_DCI_REPLY_ADDRESS);
-                //send("registration list");
+                send("registration add " + DTN_DCI_REPLY_ADDRESS);
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
@@ -103,5 +102,4 @@ public final class DtnApiHandler extends AbstractVerticle {
         LOGGER.debug(request);
         dtnSocket.write(request + "\n");
     }
-
 }

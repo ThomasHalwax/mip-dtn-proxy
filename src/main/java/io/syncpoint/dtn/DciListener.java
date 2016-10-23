@@ -46,6 +46,7 @@ public final class DciListener extends AbstractVerticle {
                        return;
                    }
                    LOGGER.info("received dci on local network");
+
                    String dci = datagramPacket.data().toString();
                    DeliveryOptions dciDeliveryOptions = new DeliveryOptions();
                    if (dci.contains("ANNOUNCE")) {
