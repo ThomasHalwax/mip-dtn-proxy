@@ -2,7 +2,7 @@ package io.syncpoint.dtn;
 
 import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
-import io.syncpoint.dtn.bundle.DtnBundleParser;
+import io.syncpoint.dtn.bundle.BundleParser;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
@@ -15,15 +15,9 @@ public final class DtnApiHandler extends AbstractVerticle {
     private static final String DTN_API_HOST = "172.16.125.133";
     private static final String INITIAL_API_MESSAGE = "IBR-DTN 1.0.1 (build 1da5501) API 1.0.1";
 
-    // other nodes broadcast their DCI announce to this address
-    private static final String DTN_DCI_ANNOUNCE_ADDRESS = "dtn://bataillon/dem/dci/announce";
-
-    // this is reply address for DCI reply messages
-    private static final String DTN_DCI_REPLY_ADDRESS = "dtn://bataillon/dem/dci/reply";
 
     private NetSocket dtnSocket;
-    private DtnBundleParser currentBundle = new DtnBundleParser();
-
+    private BundleParser currentBundle = new BundleParser();
 
 
     @Override
@@ -50,8 +44,8 @@ public final class DtnApiHandler extends AbstractVerticle {
                     recordParser.handle(buffer);
                 });
                 send("protocol extended");
-                send("registration add " + DTN_DCI_ANNOUNCE_ADDRESS);
-                send("registration add " + DTN_DCI_REPLY_ADDRESS);
+                send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
+                send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
@@ -59,22 +53,11 @@ public final class DtnApiHandler extends AbstractVerticle {
                 vertx.undeploy(deploymentID());
             }
         });
-    }
 
-    @Override
-    public void stop() {
-        dtnSocket.handler(buffer -> {
-            LOGGER.debug(buffer.toString());
+        vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_BUNDLE, bundleMessage -> {
+            LOGGER.debug("I will send your bundle");
         });
-
-        send("registration del " + DTN_DCI_ANNOUNCE_ADDRESS);
-        send("exit");
-
-        dtnSocket.end();
-        dtnSocket.close();
-        LOGGER.debug("socket closed");
     }
-
 
     private void handleApiMessage(String message) {
         LOGGER.debug(message);
@@ -93,8 +76,8 @@ public final class DtnApiHandler extends AbstractVerticle {
 
         currentBundle.addData(message);
         if (currentBundle.done()) {
-            vertx.eventBus().publish("bundle.received", currentBundle.copy());
-            currentBundle = new DtnBundleParser();
+            vertx.eventBus().publish(Addresses.EVENT_BUNDLE_RECEIVED, currentBundle.copy());
+            currentBundle = new BundleParser();
         }
     }
 

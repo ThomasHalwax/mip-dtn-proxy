@@ -7,6 +7,10 @@ public final class HeaderFlagsAdapter {
         this.flags = flags;
     }
 
+    public HeaderFlagsAdapter() {
+        this(0);
+    }
+
     public void set(Flags flag, boolean value) {
         if (value) {
             flags |= 0b1 << flag.getOffset();
@@ -18,5 +22,9 @@ public final class HeaderFlagsAdapter {
     public Boolean get(Flags flag) {
         int val = (0b1 << flag.getOffset());
         return (val & this.flags) == val;
+    }
+
+    public int getFlags() {
+        return this.flags;
     }
 }

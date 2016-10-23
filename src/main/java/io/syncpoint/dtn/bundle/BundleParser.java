@@ -5,9 +5,8 @@ import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class DtnBundleParser extends JsonObject {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DtnBundleParser.class);
-
+public final class BundleParser extends JsonObject {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BundleParser.class);
 
     private final JsonArray blocks = new JsonArray();
     private final JsonObject header = new JsonObject();
@@ -16,7 +15,7 @@ public final class DtnBundleParser extends JsonObject {
     private JsonObject currentBlock = new JsonObject();
     private BundleSection bundleSection = BundleSection.HEADER;
 
-    public DtnBundleParser() {
+    public BundleParser() {
         this.put("header", header);
         this.put("blocks", blocks);
     }

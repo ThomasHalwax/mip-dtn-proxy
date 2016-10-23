@@ -5,13 +5,13 @@ import io.vertx.core.json.JsonObject;
 
 import java.util.Iterator;
 
-public final class BundleAdapter {
+public final class BundleReadAdapter {
     private final JsonObject bundle;
     private final JsonObject header;
     private final JsonArray blocks;
     private HeaderFlagsAdapter headerFlagsAdapter;
 
-    public BundleAdapter(JsonObject bundle) {
+    public BundleReadAdapter(JsonObject bundle) {
         this.bundle = bundle;
         header = bundle.getJsonObject("header");
         headerFlagsAdapter = new HeaderFlagsAdapter(Integer.parseInt(header.getString("Processing flags")));

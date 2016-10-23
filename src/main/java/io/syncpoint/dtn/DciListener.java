@@ -7,8 +7,6 @@ import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.net.NetServer;
-import io.vertx.core.net.NetSocket;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -52,16 +50,17 @@ public final class DciListener extends AbstractVerticle {
                    if (dci.contains("ANNOUNCE")) {
                        // DCI announcement from a locally connected DEM
                        LOGGER.debug("DCI ANNOUNCE");
-                       localDemInstances.add(datagramPacket.sender().host());
-                       dciDeliveryOptions.addHeader("ENDPOINT", "GROUP");
-                       vertx.eventBus().publish("remote://dem/dci/announce", dci, dciDeliveryOptions);
+                       //localDemInstances.add(datagramPacket.sender().host());
+                       //TODO: set header value to indicate broadcast
+                       //dciDeliveryOptions.addHeader("ENDPOINT", "GROUP");
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci, dciDeliveryOptions);
                    }
                    else if (dci.contains("REPLY")) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
                        LOGGER.debug("DCI REPLY");
                        dciDeliveryOptions.addHeader("ENDPOINT", "SINGLETON");
-                       vertx.eventBus().publish("remote://dem/dci/reply", dci, dciDeliveryOptions);
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci, dciDeliveryOptions);
                    }
                    else {
                        LOGGER.debug("INVALID DCI? {}", dci);
@@ -82,26 +81,16 @@ public final class DciListener extends AbstractVerticle {
         // consume remote announcements (which are sent to local),
         // modify DCI content and broadcast message to DCI listening port
         // target of the message are all local dem instances
-        vertx.eventBus().localConsumer("local://dem/dci/announce", message -> {
+        vertx.eventBus().localConsumer(Addresses.COMMAND_ANNOUNCE_DCI, message -> {
             final byte[] rawMessage = Base64.getDecoder().decode(message.body().toString());
             Buffer b = Buffer.buffer(rawMessage);
-            sendingSocket.send(b, 13152, "255.255.255.255", broadcastHandler -> {
-                if (broadcastHandler.succeeded()) {
-                    LOGGER.debug("broadcasted DCI");
-                }
-                else {
-                    LOGGER.warn("failed to broadcast DIC: {}", broadcastHandler.cause().toString());
-                }
-            });
+            broadcastDci(b);
         });
 
         // consume remote replies and create a listening dem proxy server for each remote dem
         // host and port of the local dem proxy will replace the remote values
-        vertx.eventBus().localConsumer("local://dem/dci/reply", message -> {
-
-            String dciReply = message.body().toString();
-            DemProxyServer proxy = new DemProxyServer(dciReply, deploymentID() + "/demProxy");
-            vertx.deployVerticle(proxy);
+        vertx.eventBus().localConsumer(Addresses.COMMAND_REPLY_DCI, message -> {
+            // TODO: modify received DCI and send reply message to local network
 
         });
 
@@ -120,6 +109,17 @@ public final class DciListener extends AbstractVerticle {
                 }
             });
         }
+    }
+
+    private void broadcastDci(Buffer dciBuffer) {
+        sendingSocket.send(dciBuffer, 13152, "255.255.255.255", broadcastHandler -> {
+            if (broadcastHandler.succeeded()) {
+                LOGGER.debug("broadcasted DCI");
+            }
+            else {
+                LOGGER.warn("failed to broadcast DIC: {}", broadcastHandler.cause().toString());
+            }
+        });
     }
 
 

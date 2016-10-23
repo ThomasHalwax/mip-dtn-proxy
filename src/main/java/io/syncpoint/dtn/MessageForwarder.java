@@ -1,6 +1,6 @@
 package io.syncpoint.dtn;
 
-import io.syncpoint.dtn.bundle.BundleAdapter;
+import io.syncpoint.dtn.bundle.BundleReadAdapter;
 import io.syncpoint.dtn.bundle.Flags;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
@@ -9,30 +9,35 @@ import org.slf4j.LoggerFactory;
 
 public final class MessageForwarder extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageForwarder.class);
-    private static final String DCI_REPLY_ADDRESS = "/dem/dci/reply";
-    private static final String DCI_ANNOUNCE_ADDRESS = "/dem/dci/announce";
 
     @Override
     public void start() {
-        vertx.eventBus().localConsumer("bundle.received", transport -> {
+        // we received a bundle from a remote source
+        // messages are published by the DtnApiHandler
+        vertx.eventBus().localConsumer(Addresses.EVENT_BUNDLE_RECEIVED, transport -> {
 
-            BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
+            BundleReadAdapter bundle = new BundleReadAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.source(), bundle.destination());
             LOGGER.debug("destination is a singleton?: {}", bundle.getHeaderFlag(Flags.DESTINATION_IS_SINGLETON));
 
-            if (bundle.destination().endsWith(DCI_ANNOUNCE_ADDRESS)) {
+            if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.destination())) {
                 LOGGER.debug("forwarding dci announce to local broadcaster ...");
                 bundle.blocks().forEachRemaining(b -> {
                     JsonObject block = (JsonObject)b;
-                    vertx.eventBus().send("local://dem/dci/announce", block.getString("payload"));
+                    vertx.eventBus().send(Addresses.COMMAND_ANNOUNCE_DCI, block.getString("payload"));
                 });
             }
-            else if (bundle.destination().endsWith(DCI_REPLY_ADDRESS)) {
+            else if (Addresses.DTN_DCI_REPLY_ADDRESS.equals(bundle.destination())) {
                 LOGGER.debug("forwarding dci reply to wherever ...");
             }
             else {
                 LOGGER.warn("unsupported url");
             }
+        });
+
+        // handle a locally received DCI
+        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
+
         });
     }
 }
