@@ -16,7 +16,7 @@ public final class DtnApiHandler extends AbstractVerticle {
     private static final String INITIAL_API_MESSAGE = "IBR-DTN 1.0.1 (build 1da5501) API 1.0.1";
 
     // other nodes broadcast their DCI announce to this address
-    private static final String DTN_DCI_ANNOUNCE_ADDRESS = "dtn://batallion/dem/dci/announce";
+    private static final String DTN_DCI_ANNOUNCE_ADDRESS = "dtn://bataillon/dem/dci/announce";
 
     // this is reply address for DCI reply messages
     private static final String DTN_DCI_REPLY_ADDRESS = "dtn://batallion/dem/dci/reply";
@@ -51,7 +51,7 @@ public final class DtnApiHandler extends AbstractVerticle {
                 });
                 send("protocol extended");
                 send("registration add " + DTN_DCI_ANNOUNCE_ADDRESS);
-                send("registration add " + DTN_DCI_REPLY_ADDRESS);
+                //send("registration add " + DTN_DCI_REPLY_ADDRESS);
                 //send("registration list");
             }
             else {
