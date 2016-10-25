@@ -4,6 +4,7 @@ import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.bundle.BundleParser;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.parsetools.RecordParser;
@@ -21,7 +22,7 @@ public final class DtnApiHandler extends AbstractVerticle {
 
 
     @Override
-    public void start() {
+    public void start(Future<Void> started) {
 
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
@@ -46,11 +47,11 @@ public final class DtnApiHandler extends AbstractVerticle {
                 send("protocol extended");
                 send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
                 send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
+                started.complete();
             }
             else {
                 LOGGER.warn("connect failed ", attempt.cause());
-                LOGGER.warn("undeploying {} with id {}", DtnApiHandler.class.getName(), deploymentID());
-                vertx.undeploy(deploymentID());
+                started.fail(attempt.cause());
             }
         });
 

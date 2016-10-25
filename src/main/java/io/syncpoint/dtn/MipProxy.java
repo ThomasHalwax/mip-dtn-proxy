@@ -11,6 +11,7 @@ public final class MipProxy extends AbstractVerticle{
 
     final Class[] verticles = {
             DciListener.class,
+            TManListener.class,
             MessageForwarder.class,
             DtnApiHandler.class
 
@@ -26,10 +27,10 @@ public final class MipProxy extends AbstractVerticle{
             LOGGER.debug("deploying verticle " + verticle.getName());
             vertx.deployVerticle(verticle.getName(), deployment -> {
                 if (deployment.succeeded()) {
-                    LOGGER.info("verticle deployment succeeded: " + deployment.result());
+                    LOGGER.info("deployment of {} succeeded.", verticle.getName());
                 }
                 else {
-                    LOGGER.warn("failed to deploy verticle: " + deployment.cause());
+                    LOGGER.warn("deployment of {} failed: {}", verticle.getName(), deployment.cause());
                 }
             });
         }
