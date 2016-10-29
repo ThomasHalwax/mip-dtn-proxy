@@ -18,7 +18,6 @@ public final class MessageForwarder extends AbstractVerticle {
 
             BundleReadAdapter bundle = new BundleReadAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.source(), bundle.destination());
-            LOGGER.debug("destination is a singleton?: {}", bundle.getHeaderFlag(Flags.DESTINATION_IS_SINGLETON));
 
             if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.destination())) {
                 LOGGER.debug("forwarding dci announce to local broadcaster ...");
