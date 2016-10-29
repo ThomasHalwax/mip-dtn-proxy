@@ -3,8 +3,11 @@ package io.syncpoint.dtn;
 import io.syncpoint.dtn.api.ApiMessage;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.bundle.BundleParser;
+import io.syncpoint.dtn.bundle.BundleSerializer;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.parsetools.RecordParser;
@@ -56,7 +59,9 @@ public final class DtnApiHandler extends AbstractVerticle {
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_BUNDLE, bundleMessage -> {
-            LOGGER.debug("I will send your bundle");
+            JsonObject bundle = (JsonObject) bundleMessage.body();
+            send(BundleSerializer.serialize(bundle));
+            LOGGER.debug("sent bundle");
         });
     }
 
@@ -85,5 +90,9 @@ public final class DtnApiHandler extends AbstractVerticle {
     private void send(String request) {
         LOGGER.debug(request);
         dtnSocket.write(request + "\n");
+    }
+
+    private void send(Buffer buffer) {
+        dtnSocket.write(buffer);
     }
 }

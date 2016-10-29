@@ -11,7 +11,7 @@ public final class HeaderFlagsAdapter {
         this(0);
     }
 
-    public void set(Flags flag, boolean value) {
+    public void set(BundleFlags flag, boolean value) {
         if (value) {
             flags |= 0b1 << flag.getOffset();
         } else {
@@ -19,7 +19,7 @@ public final class HeaderFlagsAdapter {
         }
     }
 
-    public Boolean get(Flags flag) {
+    public Boolean get(BundleFlags flag) {
         int val = (0b1 << flag.getOffset());
         return (val & this.flags) == val;
     }

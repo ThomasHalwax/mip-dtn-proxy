@@ -1,7 +1,10 @@
 package io.syncpoint.dtn.bundle;
 
+import io.netty.buffer.ByteBuf;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+
+import java.util.Base64;
 
 public final class BundleCreateAdapter {
     private final JsonObject bundle = new JsonObject();
@@ -22,14 +25,24 @@ public final class BundleCreateAdapter {
         header.put(BundleFields.DESTINATION, destination);
     }
 
-    public void setHeaderFlags(Flags flag, boolean value) {
+    public void setHeaderFlags(BundleFlags flag, boolean value) {
         flagsAdapter.set(flag, value);
-        header.put(BundleFields.FLAGS, flagsAdapter.getFlags());
+        header.put(BundleFields.BUNDLE_FLAGS, flagsAdapter.getFlags());
     }
 
-    public void addBase64Payload(String encodedPayload) {
+    public void addPayload(String payload) {
         JsonObject block = new JsonObject();
-        block.put(BundleFields.PAYLOAD, encodedPayload);
+        block.put(BundleFields.BLOCK_LENGTH, payload.length());
+        block.put(BundleFields.PAYLOAD, Base64.getEncoder().encodeToString(payload.getBytes()));
         blocks.add(block);
     }
+
+    public String encode() {
+        return bundle.encode();
+    }
+
+    public JsonObject getCopy() {
+        return bundle.copy();
+    }
+
 }

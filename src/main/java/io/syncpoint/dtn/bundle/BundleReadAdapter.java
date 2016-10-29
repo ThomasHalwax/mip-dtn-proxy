@@ -14,7 +14,8 @@ public final class BundleReadAdapter {
     public BundleReadAdapter(JsonObject bundle) {
         this.bundle = bundle;
         header = bundle.getJsonObject("header");
-        headerFlagsAdapter = new HeaderFlagsAdapter(Integer.parseInt(header.getString("Processing flags")));
+        String flags = header.getString(BundleFields.BUNDLE_FLAGS);
+        headerFlagsAdapter = new HeaderFlagsAdapter(Integer.parseInt(flags));
         blocks = bundle.getJsonArray("blocks");
     }
 
@@ -34,7 +35,9 @@ public final class BundleReadAdapter {
         return this.blocks.iterator();
     }
 
-    public boolean getHeaderFlag(Flags flag) {
+    public boolean getHeaderFlag(BundleFlags flag) {
         return headerFlagsAdapter.get(flag);
     }
+
+    public int headerFlags() { return header.getInteger(BundleFields.BUNDLE_FLAGS); }
 }

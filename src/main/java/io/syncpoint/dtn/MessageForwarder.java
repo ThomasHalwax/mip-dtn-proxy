@@ -1,7 +1,8 @@
 package io.syncpoint.dtn;
 
+import io.syncpoint.dtn.bundle.BundleCreateAdapter;
+import io.syncpoint.dtn.bundle.BundleFlags;
 import io.syncpoint.dtn.bundle.BundleReadAdapter;
-import io.syncpoint.dtn.bundle.Flags;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
@@ -36,6 +37,17 @@ public final class MessageForwarder extends AbstractVerticle {
 
         // handle a locally received DCI
         vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
+            JsonObject dci = new JsonObject((String)transport.body());
+            BundleCreateAdapter bundle = new BundleCreateAdapter();
+            bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
+            bundle.setSource("dtn://" + dci.getJsonObject("DCI").getJsonObject("DciBody").getInteger("NodeID"));
+            bundle.setHeaderFlags(BundleFlags.DESTINATION_IS_SINGLETON, false);
+
+
+            bundle.addPayload(dci.encode());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getCopy());
+            LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
 
         });
     }

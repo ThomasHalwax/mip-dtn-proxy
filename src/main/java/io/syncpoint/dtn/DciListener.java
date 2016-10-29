@@ -46,12 +46,12 @@ public final class DciListener extends AbstractVerticle {
                    }
                    LOGGER.info("received dci on local network");
 
-                   String dci = datagramPacket.data().toString();
-                   JSONObject jsonObject;
+                   String xmlDci = datagramPacket.data().toString();
+                   JSONObject dci;
                    String dciScope;
                    try {
-                       jsonObject = XML.toJSONObject(dci);
-                       dciScope = jsonObject.getJSONObject("DCI").getString("DciScope");
+                       dci = XML.toJSONObject(xmlDci);
+                       dciScope = dci.getJSONObject("DCI").getString("DciScope");
                    }
                    catch (JSONException jsonParserException) {
                        LOGGER.warn("unable to parse dci", jsonParserException.getMessage());
@@ -61,20 +61,20 @@ public final class DciListener extends AbstractVerticle {
                    if ("ANNOUNCE".equals(dciScope)) {
                        // DCI announcement from a locally connected DEM
                        LOGGER.debug("DCI ANNOUNCE");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci);
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci.toString());
                    }
                    else if ("REPLY".equals(dciScope)) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
                        LOGGER.debug("DCI REPLY");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci);
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci.toString());
                    }
                    else {
-                       LOGGER.debug("INVALID DCI? {}", dci);
+                       LOGGER.debug("INVALID DCI? {}", xmlDci);
                    }
-                   final String nodeID = jsonObject.getJSONObject("DciBody").getString("NodeID");
-                   localDemInstances.put(nodeID, datagramPacket.sender().host());
-                   LOGGER.debug("added {} to the local dem instances");
+                   final int nodeID = dci.getJSONObject("DCI").getJSONObject("DciBody").getInt("NodeID");
+                   localDemInstances.put(String.valueOf(nodeID), datagramPacket.sender().host());
+                   LOGGER.debug("added {} to the local dem instances", nodeID);
                    LOGGER.debug("{} local dem instances", localDemInstances.size());
                });
            }

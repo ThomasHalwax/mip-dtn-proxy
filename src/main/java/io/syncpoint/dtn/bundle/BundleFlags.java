@@ -25,10 +25,10 @@
 package io.syncpoint.dtn.bundle;
 
 /**
- * The flags are bit values where the offset is theri position
+ * The flags are bit values where the offset is the position
  * within a 32 bit dword
  */
-public enum Flags {
+public enum BundleFlags {
 
     FRAGMENT(0),
     ADM_RECORD(1),
@@ -49,7 +49,7 @@ public enum Flags {
     FORWARD_REPORT(16),
     DELIVERY_REPORT(17),
     DELETION_REPORT(18),
-    // DTNSEC FLAGS (these are customized flags and not written down in any draft)
+    // DTNSEC BUNDLE_FLAGS (these are customized flags and not written down in any draft)
     DTNSEC_REQUEST_SIGN(26),
     DTNSEC_REQUEST_ENCRYPT(27),
     DTNSEC_STATUS_VERIFIED(28),
@@ -59,7 +59,7 @@ public enum Flags {
 
     private int offset;
 
-    Flags(int offset) {
+    BundleFlags(int offset) {
         this.offset = offset;
     }
 
