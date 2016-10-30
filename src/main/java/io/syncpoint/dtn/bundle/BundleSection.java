@@ -1,8 +1,8 @@
 package io.syncpoint.dtn.bundle;
 
 public enum BundleSection {
-        HEADER,
+        PRIMARY_BLOCK,
         BLOCK_HEADER,
-        BLOCK_PAYLOAD,
+        BLOCK_CONTENT,
         END
 }

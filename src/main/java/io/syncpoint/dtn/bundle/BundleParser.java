@@ -1,29 +1,29 @@
 package io.syncpoint.dtn.bundle;
 
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class BundleParser extends JsonObject {
+public final class BundleParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleParser.class);
 
-    private final JsonArray blocks = new JsonArray();
-    private final JsonObject header = new JsonObject();
+    BAdapter bundleAdapter = new BAdapter();
+    BlockAdapter blockAdapter = new BlockAdapter();
 
-    private StringBuilder currentPayload = new StringBuilder();
-    private JsonObject currentBlock = new JsonObject();
-    private BundleSection bundleSection = BundleSection.HEADER;
+    private StringBuilder blockContent = new StringBuilder();
+    private BundleSection bundleSection = BundleSection.PRIMARY_BLOCK;
 
-    public BundleParser() {
-        this.put("header", header);
-        this.put("blocks", blocks);
+    public void reset() {
+        bundleAdapter = new BAdapter();
+        blockAdapter = new BlockAdapter();
+        blockContent = new StringBuilder();
+        bundleSection = BundleSection.PRIMARY_BLOCK;
     }
 
     public void addData(String data) {
-        //LOGGER.debug("<< {}", data);
+
         switch (bundleSection) {
-            case HEADER: {
+            case PRIMARY_BLOCK: {
                 if (data.length() == 0) {
                     bundleSection = BundleSection.BLOCK_HEADER;
                     LOGGER.debug("reached end of header");
@@ -31,29 +31,42 @@ public final class BundleParser extends JsonObject {
                 else {
                     final String[] headerLine = data.split(": ");
                     if (headerLine.length != 2) return;
-                    header.put(headerLine[0], headerLine[1]);
+                    bundleAdapter.setPrimaryBlockField(headerLine[0], headerLine[1]);
                 }
                 break;
             }
             case BLOCK_HEADER: {
                 if (data.length() == 0) {
-                    bundleSection = BundleSection.BLOCK_PAYLOAD;
+                    bundleSection = BundleSection.BLOCK_CONTENT;
                     LOGGER.debug("reached end of block header");
                 }
                 else {
                     final String[] blockHeaderLine = data.split(": ");
                     if (blockHeaderLine.length != 2) return;
-                    currentBlock.put(blockHeaderLine[0], blockHeaderLine[1]);
+                    switch (blockHeaderLine[0]) {
+                        case BundleFields.BLOCK_FLAGS: {
+                            blockAdapter.setFlags(blockHeaderLine[1]);
+                            break;
+                        }
+                        case BundleFields.BLOCK_CONTENT_LENGTH: {
+                            blockAdapter.setEncodedContentLength(Integer.parseInt(blockHeaderLine[1]));
+                            break;
+                        }
+                        default: {
+                            LOGGER.debug("ignoring block data {}", data);
+                        }
+                    }
                 }
                 break;
             }
-            case BLOCK_PAYLOAD: {
+            case BLOCK_CONTENT: {
                 if (data.length() == 0) {
-                    currentBlock.put("payload", currentPayload.toString());
-                    blocks.add(currentBlock);
+                    blockAdapter.setEncodedContent(blockContent.toString());
+                    bundleAdapter.addBlock(blockAdapter.getBlock());
+
                     if (moreBlocks()) {
-                        currentBlock = new JsonObject();
-                        currentPayload = new StringBuilder();
+                        blockAdapter = new BlockAdapter();
+                        blockContent = new StringBuilder();
                         return;
                     }
                     else {
@@ -63,7 +76,7 @@ public final class BundleParser extends JsonObject {
                     return;
                 }
                 else {
-                    currentPayload.append(data);
+                    blockContent.append(data);
                 }
                 break;
             }
@@ -78,9 +91,12 @@ public final class BundleParser extends JsonObject {
         return (bundleSection == BundleSection.END);
     }
 
+    public JsonObject getBundle() {
+        return this.bundleAdapter.getBundle();
+    }
 
     private boolean moreBlocks() {
-        if (Integer.parseInt(header.getString("Blocks")) == blocks.size()) {
+        if (bundleAdapter.numberOfBlocksAdded() == bundleAdapter.numberOfBlocksExpected()) {
             return false;
         }
         return true;

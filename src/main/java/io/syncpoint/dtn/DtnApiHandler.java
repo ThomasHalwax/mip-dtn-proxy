@@ -21,7 +21,7 @@ public final class DtnApiHandler extends AbstractVerticle {
 
 
     private NetSocket dtnSocket;
-    private BundleParser currentBundle = new BundleParser();
+    private BundleParser bundleParser = new BundleParser();
 
 
     @Override
@@ -80,10 +80,10 @@ public final class DtnApiHandler extends AbstractVerticle {
         LOGGER.debug(message);
         if (INITIAL_API_MESSAGE.equals(message)) return;
 
-        currentBundle.addData(message);
-        if (currentBundle.done()) {
-            vertx.eventBus().publish(Addresses.EVENT_BUNDLE_RECEIVED, currentBundle.copy());
-            currentBundle = new BundleParser();
+        bundleParser.addData(message);
+        if (bundleParser.done()) {
+            vertx.eventBus().publish(Addresses.EVENT_BUNDLE_RECEIVED, bundleParser.getBundle());
+            bundleParser.reset();
         }
     }
 
