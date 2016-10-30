@@ -14,7 +14,7 @@ public final class BundleSerializer {
     }
 
     public static Buffer serialize(JsonObject rawBundle) {
-        BAdapter bundle = new BAdapter(rawBundle);
+        BundleAdapter bundle = new BundleAdapter(rawBundle);
 
         Buffer buffer = Buffer.buffer();
         //buffer.appendString("bundle clear\n");

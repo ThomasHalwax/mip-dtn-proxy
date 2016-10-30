@@ -16,7 +16,7 @@ public final class MessageForwarder extends AbstractVerticle {
         vertx.eventBus().localConsumer(Addresses.EVENT_BUNDLE_RECEIVED, transport -> {
 
 
-            BAdapter bundle = new BAdapter((JsonObject)transport.body());
+            BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
             if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.getDestination())) {
@@ -38,7 +38,7 @@ public final class MessageForwarder extends AbstractVerticle {
         vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
 
             JsonObject dci = new JsonObject((String)transport.body());
-            BAdapter bundle = new BAdapter();
+            BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
             bundle.setSource("dtn://" + dci.getJsonObject("DCI").getJsonObject("DciBody").getInteger("NodeID"));
             HeaderFlagsAdapter flags = new HeaderFlagsAdapter();

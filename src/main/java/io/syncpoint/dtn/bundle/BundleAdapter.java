@@ -5,16 +5,16 @@ import io.vertx.core.json.JsonObject;
 
 import java.util.Iterator;
 
-public final class BAdapter {
+public final class BundleAdapter {
 
     private final JsonObject bundle;
     private final JsonArray blocks;
 
-    public BAdapter() {
+    public BundleAdapter() {
         this(new JsonObject());
     }
 
-    public BAdapter(JsonObject bundle) {
+    public BundleAdapter(JsonObject bundle) {
         this.bundle = bundle;
         if (bundle.containsKey(BundleFields.BLOCKS)) {
             blocks = bundle.getJsonArray(BundleFields.BLOCKS);

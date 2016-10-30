@@ -7,14 +7,14 @@ import org.slf4j.LoggerFactory;
 public final class BundleParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleParser.class);
 
-    BAdapter bundleAdapter = new BAdapter();
+    BundleAdapter bundleAdapter = new BundleAdapter();
     BlockAdapter blockAdapter = new BlockAdapter();
 
     private StringBuilder blockContent = new StringBuilder();
     private BundleSection bundleSection = BundleSection.PRIMARY_BLOCK;
 
     public void reset() {
-        bundleAdapter = new BAdapter();
+        bundleAdapter = new BundleAdapter();
         blockAdapter = new BlockAdapter();
         blockContent = new StringBuilder();
         bundleSection = BundleSection.PRIMARY_BLOCK;
