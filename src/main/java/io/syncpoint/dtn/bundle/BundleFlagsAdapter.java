@@ -1,13 +1,13 @@
 package io.syncpoint.dtn.bundle;
 
-public final class HeaderFlagsAdapter {
+public final class BundleFlagsAdapter {
     private int flags;
 
-    public HeaderFlagsAdapter(int flags) {
+    public BundleFlagsAdapter(int flags) {
         this.flags = flags;
     }
 
-    public HeaderFlagsAdapter() {
+    public BundleFlagsAdapter() {
         this(0);
     }
 

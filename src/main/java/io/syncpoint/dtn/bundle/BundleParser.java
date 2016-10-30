@@ -5,10 +5,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class BundleParser {
+
+    private enum BundleSection {
+        PRIMARY_BLOCK,
+        BLOCK_HEADER,
+        BLOCK_CONTENT,
+        END
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleParser.class);
 
-    BundleAdapter bundleAdapter = new BundleAdapter();
-    BlockAdapter blockAdapter = new BlockAdapter();
+    private BundleAdapter bundleAdapter = new BundleAdapter();
+    private BlockAdapter blockAdapter = new BlockAdapter();
 
     private StringBuilder blockContent = new StringBuilder();
     private BundleSection bundleSection = BundleSection.PRIMARY_BLOCK;

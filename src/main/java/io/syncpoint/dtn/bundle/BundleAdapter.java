@@ -54,6 +54,14 @@ public final class BundleAdapter {
     }
 
     public void addBlock(JsonObject block) {
+
+        blocks.iterator().forEachRemaining(b -> {
+            BlockAdapter iteratingAdapter = new BlockAdapter((JsonObject)b);
+            iteratingAdapter.setFlag(BlockFlags.LAST_BLOCK, false);
+        });
+
+        BlockAdapter adapter = new BlockAdapter(block);
+        adapter.setFlag(BlockFlags.LAST_BLOCK, true);
         blocks.add(block);
     }
 

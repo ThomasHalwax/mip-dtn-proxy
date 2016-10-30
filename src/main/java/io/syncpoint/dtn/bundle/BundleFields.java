@@ -14,7 +14,7 @@ public final class BundleFields {
     public static final String BUNDLE_FLAGS = "Processing flags";
     public static final String BLOCK_FLAGS = "Flags";
     public static final String NUMBER_OF_BLOCKS = "Blocks";
-    public static final String CURRENT_BLOCK = "Block";
+    public static final String BLOCK_TYPE = "Block";
     public static final String BLOCK_CONTENT_LENGTH = "Length";
 
 }

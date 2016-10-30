@@ -18,7 +18,7 @@ public final class BlockAdapter {
         this.block = block;
     }
 
-    public void setUnencodedContent(String content) {
+    public void setPlainContent(String content) {
         block.put(BundleFields.BLOCK_CONTENT_LENGTH, content.length());
         block.put(BundleFields.BLOCK_CONTENT, Base64.getEncoder().encodeToString(content.getBytes()));
         LOGGER.debug("content length is {}", content.length());
@@ -36,15 +36,51 @@ public final class BlockAdapter {
         return block.getString(BundleFields.BLOCK_CONTENT);
     }
 
-    public void setFlag(BundleFlags flag, boolean value) {
+    public int getPlainContentLength() {
+        return block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH);
+    }
 
+    public void setFlag(BlockFlags flag, boolean value) {
+        int currentFlags = 0;
+        if (block.containsKey(BundleFields.BLOCK_FLAGS)) {
+            currentFlags = block.getInteger(BundleFields.BLOCK_FLAGS);
+        }
+
+        BlockFlagsAdapter adapter = new BlockFlagsAdapter(currentFlags);
+        adapter.set(flag, value);
+        block.put(BundleFields.BLOCK_FLAGS, adapter.getFlags());
     }
 
     public void setFlags(String flags) {
         final String[] values = flags.split(" ");
         for (String flag : values) {
-            LOGGER.debug("SETTING FLAG {}", flag);
+            try {
+                LOGGER.debug("SETTING FLAG {}", flag);
+                final BlockFlags parsedFlag = BlockFlags.valueOf(flag);
+                setFlag(parsedFlag, true);
+            }
+            catch (IllegalArgumentException parsingFailed) {
+                LOGGER.warn("failed to parse {} to a valid block flag: {}", flag, parsingFailed.getMessage());
+            }
         }
+    }
+
+    public String getFlags() {
+
+        int currentFlags = 0;
+        if (block.containsKey(BundleFields.BLOCK_FLAGS)) {
+            currentFlags = block.getInteger(BundleFields.BLOCK_FLAGS);
+        }
+        BlockFlagsAdapter adapter = new BlockFlagsAdapter(currentFlags);
+
+        StringBuilder flags = new StringBuilder();
+
+        for (BlockFlags flag : BlockFlags.values()) {
+            if (adapter.get(flag)) {
+                flags.append(flag.toString()).append(" ");
+            }
+        }
+        return flags.toString().trim();
     }
 
     public JsonObject getBlock() {

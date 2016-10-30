@@ -41,12 +41,12 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
             bundle.setSource("dtn://" + dci.getJsonObject("DCI").getJsonObject("DciBody").getInteger("NodeID"));
-            HeaderFlagsAdapter flags = new HeaderFlagsAdapter();
+            BundleFlagsAdapter flags = new BundleFlagsAdapter();
             flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
 
             bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
             BlockAdapter payload = new BlockAdapter();
-            payload.setUnencodedContent(dci.encode());
+            payload.setPlainContent(dci.encode());
             bundle.addBlock(payload.getBlock());
 
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());

@@ -31,13 +31,15 @@ public final class BundleSerializer {
         int blockId = 1;
         final Iterator<Object> blocks = bundle.blockIterator();
         while (blocks.hasNext()) {
-            JsonObject block = (JsonObject)blocks.next();
-            String base64EncodedPayload = block.getString(BundleFields.BLOCK_CONTENT);
-            LOGGER.debug("blocksize is {}", base64EncodedPayload.length());
-            buffer.appendString(BundleFields.CURRENT_BLOCK).appendString(": ").appendString(String.valueOf(blockId)).appendString("\n");
-            buffer.appendString(BundleFields.BLOCK_FLAGS).appendString(": ").appendString("LAST_BLOCK").appendString("\n");
-            buffer.appendString(BundleFields.BLOCK_CONTENT_LENGTH).appendString(": ").appendString(String.valueOf(block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH))).appendString("\n\n");
-            buffer.appendString(base64EncodedPayload).appendString("\n\n");
+            BlockAdapter block = new BlockAdapter((JsonObject)blocks.next());
+
+            buffer.appendString(BundleFields.BLOCK_TYPE).appendString(": ")
+                    .appendString(String.valueOf(blockId)).appendString("\n");
+            buffer.appendString(BundleFields.BLOCK_FLAGS).appendString(": ")
+                    .appendString(block.getFlags()).appendString("\n");
+            buffer.appendString(BundleFields.BLOCK_CONTENT_LENGTH).appendString(": ")
+                    .appendString(String.valueOf(block.getPlainContentLength())).appendString("\n\n");
+            buffer.appendString(block.getEncodedContent()).appendString("\n\n");
             blockId++;
         }
         buffer.appendString("bundle send\n\n");
