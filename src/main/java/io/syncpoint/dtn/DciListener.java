@@ -4,26 +4,32 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
-import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.XML;
 
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.util.*;
+import java.util.Base64;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class DciListener extends AbstractVerticle {
 
-    static final Logger LOGGER = LoggerFactory.getLogger(DciListener.class);
-    static final int DCI_PORT = 13152;
+    public static final int DCI_PORT = 13152;
+    private static final Logger LOGGER = LoggerFactory.getLogger(DciListener.class);
 
     private final Set<String> myIpAddresses = getLocalIpAddresses();
+    //private final Map<String,String> localDemInstances = new HashMap<>();
 
-    private final Map<String,String> localDemInstances = new HashMap<>();
+    private final Pattern dciScopePattern = Pattern.compile("<DciScope>.?</DciScope>");
+    private final Pattern dciReplicationNodeIPAddressPattern = Pattern.compile("<ReplicationNodeIPAddress>(?:[0-9]{1,3}\\.){3}[0-9]{1,3}</ReplicationNodeIPAddress>");
+    private final Pattern dciReplicationNodePortPattern = Pattern.compile("<ReplicationNodePort>\\d+</ReplicationNodePort>");
 
     private DatagramSocket listeningSocket;
     private DatagramSocket sendingSocket;
@@ -48,35 +54,26 @@ public final class DciListener extends AbstractVerticle {
                    LOGGER.info("received dci on local network");
 
                    String xmlDci = datagramPacket.data().toString();
-                   JSONObject dci;
-                   String dciScope;
-                   try {
-                       dci = XML.toJSONObject(xmlDci);
-                       dciScope = dci.getJSONObject("DCI").getString("DciScope");
-                   }
-                   catch (JSONException jsonParserException) {
-                       LOGGER.warn("unable to parse dci", jsonParserException.getMessage());
+                   final Matcher matcher = dciScopePattern.matcher(xmlDci);
+                   if (! matcher.matches()) {
+                       LOGGER.warn("DCI does not contain a ANNOUNCE or REPLY scope");
                        return;
                    }
 
-                   if ("ANNOUNCE".equals(dciScope)) {
+                   if ("ANNOUNCE".equals(matcher.group())) {
                        // DCI announcement from a locally connected DEM
                        LOGGER.debug("DCI ANNOUNCE");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, dci.toString());
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, xmlDci);
                    }
-                   else if ("REPLY".equals(dciScope)) {
+                   else if ("REPLY".equals(matcher.group())) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
                        LOGGER.debug("DCI REPLY");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, dci.toString());
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, xmlDci);
                    }
                    else {
                        LOGGER.debug("INVALID DCI? {}", xmlDci);
                    }
-                   final int nodeID = dci.getJSONObject("DCI").getJSONObject("DciBody").getInt("NodeID");
-                   localDemInstances.put(String.valueOf(nodeID), datagramPacket.sender().host());
-                   LOGGER.debug("added {} to the local dem instances", nodeID);
-                   LOGGER.debug("{} local dem instances", localDemInstances.size());
                });
            }
            else {
@@ -90,23 +87,30 @@ public final class DciListener extends AbstractVerticle {
         sendingSocketOptions.setBroadcast(true);
         sendingSocket = vertx.createDatagramSocket(sendingSocketOptions);
 
-        // consume remote announcements (which are sent to local),
+
         // modify DCI content and broadcast message to DCI listening port
         // target of the message are all local dem instances
         vertx.eventBus().localConsumer(Addresses.COMMAND_ANNOUNCE_DCI, message -> {
-            final byte[] rawMessage = Base64.getDecoder().decode(message.body().toString());
-            Buffer b = Buffer.buffer(rawMessage);
-            broadcastDci(b);
+            handleRemoteDciMessage(message);
         });
 
-        // consume remote replies and create a listening DEM proxy server for each remote DEM
-        // host and port of the local dem proxy will replace the remote values
+        // consume remote replies
+        // since we don't have an correlation information we need to broadcast
+        // replies, too
         vertx.eventBus().localConsumer(Addresses.COMMAND_REPLY_DCI, message -> {
-            // TODO: modify received DCI and send reply message to local network
-
+            handleRemoteDciMessage(message);
         });
+    }
 
+    private void handleRemoteDciMessage(Message<Object> message) {
+        String remoteDci = new String(Base64.getDecoder().decode((String)message.body()));
 
+        String proxyDci = dciReplicationNodeIPAddressPattern.matcher(remoteDci)
+                .replaceAll("<ReplicationNodeIPAddress>" + myIpAddresses.iterator().next() + "</ReplicationNodeIPAddress>");
+        proxyDci =  dciReplicationNodePortPattern.matcher(proxyDci)
+                .replaceAll("<ReplicationNodePort>" + String.valueOf(DCI_PORT) + "/<ReplicationNodePort>");
+
+        broadcastDci(Buffer.buffer(proxyDci));
     }
 
     private void broadcastDci(Buffer dciBuffer) {
@@ -131,15 +135,14 @@ public final class DciListener extends AbstractVerticle {
                 while (ipAddresses.hasMoreElements())
                 {
                     InetAddress i = (InetAddress) ipAddresses.nextElement();
+                    if (i.isLoopbackAddress()) continue;
+                    if (i instanceof Inet6Address) continue;
                     ipList.add(i.getHostAddress());
                 }
             }
         } catch (SocketException networkException) {
             LOGGER.error("failed to enumerate network interfaces", networkException);
         }
-
         return ipList;
     }
-
-
 }
