@@ -42,6 +42,7 @@ public final class DciListener extends AbstractVerticle {
 
                    if (myIpAddresses.contains(datagramPacket.sender().host())) {
                        LOGGER.debug("ignoring broadcast from myself");
+                       //TODO: turn on ignoring dci from self
                        //return;
                    }
                    LOGGER.info("received dci on local network");
@@ -109,7 +110,7 @@ public final class DciListener extends AbstractVerticle {
     }
 
     private void broadcastDci(Buffer dciBuffer) {
-        sendingSocket.send(dciBuffer, 13152, "255.255.255.255", broadcastHandler -> {
+        sendingSocket.send(dciBuffer, DCI_PORT, "255.255.255.255", broadcastHandler -> {
             if (broadcastHandler.succeeded()) {
                 LOGGER.debug("broadcasted DCI");
             }
