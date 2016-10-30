@@ -16,13 +16,10 @@ import org.slf4j.Logger;
 public final class DtnApiHandler extends AbstractVerticle {
 
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnApiHandler.class);
-    private static final String DTN_API_HOST = "172.16.125.133";
     private static final String INITIAL_API_MESSAGE = "IBR-DTN 1.0.1 (build 1da5501) API 1.0.1";
-
 
     private NetSocket dtnSocket;
     private BundleParser bundleParser = new BundleParser();
-
 
     @Override
     public void start(Future<Void> started) {
@@ -30,8 +27,8 @@ public final class DtnApiHandler extends AbstractVerticle {
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
 
-        LOGGER.debug("connecting to {}:4550", DTN_API_HOST);
-        vertx.createNetClient(options).connect(4550, DTN_API_HOST, attempt -> {
+        LOGGER.debug("connecting to {}:{}", config().getString("host"), config().getInteger("port"));
+        vertx.createNetClient(options).connect(config().getInteger("port"), config().getString("host"), attempt -> {
             if (attempt.succeeded()) {
                 LOGGER.debug("connected");
                 dtnSocket = attempt.result();
@@ -44,9 +41,7 @@ public final class DtnApiHandler extends AbstractVerticle {
                         handleData(message);
                     }
                 });
-                dtnSocket.handler(buffer -> {
-                    recordParser.handle(buffer);
-                });
+                dtnSocket.handler(recordParser::handle);
                 send("protocol extended");
                 send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
                 send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
