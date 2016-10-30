@@ -17,7 +17,7 @@ public final class BundleSerializer {
         BundleAdapter bundle = new BundleAdapter(rawBundle);
 
         Buffer buffer = Buffer.buffer();
-        //buffer.appendString("bundle clear\n");
+
         buffer.appendString("bundle put plain\n");
         buffer.appendString(BundleFields.SOURCE).appendString(": ")
                 .appendString(bundle.getPrimaryBlockField(BundleFields.SOURCE)).appendString("\n");
@@ -28,19 +28,19 @@ public final class BundleSerializer {
         buffer.appendString(BundleFields.NUMBER_OF_BLOCKS).appendString(": ")
                 .appendString(String.valueOf(bundle.numberOfBlocksAdded())).appendString("\n\n");
 
-        int blockId = 1;
+
         final Iterator<Object> blocks = bundle.blockIterator();
         while (blocks.hasNext()) {
             BlockAdapter block = new BlockAdapter((JsonObject)blocks.next());
 
             buffer.appendString(BundleFields.BLOCK_TYPE).appendString(": ")
-                    .appendString(String.valueOf(blockId)).appendString("\n");
+                    .appendString(String.valueOf(block.getBlockType())).appendString("\n");
             buffer.appendString(BundleFields.BLOCK_FLAGS).appendString(": ")
                     .appendString(block.getFlags()).appendString("\n");
             buffer.appendString(BundleFields.BLOCK_CONTENT_LENGTH).appendString(": ")
                     .appendString(String.valueOf(block.getPlainContentLength())).appendString("\n\n");
             buffer.appendString(block.getEncodedContent()).appendString("\n\n");
-            blockId++;
+
         }
         buffer.appendString("bundle send\n\n");
 

@@ -52,6 +52,10 @@ public final class BundleParser {
                     final String[] blockHeaderLine = data.split(": ");
                     if (blockHeaderLine.length != 2) return;
                     switch (blockHeaderLine[0]) {
+                        case BundleFields.BLOCK_TYPE: {
+                            blockAdapter.setBlockType(Integer.parseInt(blockHeaderLine[1]));
+                            break;
+                        }
                         case BundleFields.BLOCK_FLAGS: {
                             blockAdapter.setFlags(blockHeaderLine[1]);
                             break;
@@ -104,9 +108,6 @@ public final class BundleParser {
     }
 
     private boolean moreBlocks() {
-        if (bundleAdapter.numberOfBlocksAdded() == bundleAdapter.numberOfBlocksExpected()) {
-            return false;
-        }
-        return true;
+        return bundleAdapter.numberOfBlocksAdded() != bundleAdapter.numberOfBlocksExpected();
     }
 }

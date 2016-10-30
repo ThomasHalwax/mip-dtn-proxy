@@ -13,15 +13,39 @@ public final class BlockAdapter {
     public BlockAdapter() {
         this(new JsonObject());
     }
-
     public BlockAdapter(JsonObject block) {
         this.block = block;
     }
 
+    /**
+     *
+     * @param type A value of 1 marks this block as a payload (non-administrative) block.
+     */
+    public void setBlockType(int type) {
+        block.put(BundleFields.BLOCK_TYPE, type);
+    }
+
+    public int getBlockType() {
+        int blockType = 1;
+        if (block.containsKey(BundleFields.BLOCK_TYPE)) {
+            blockType = block.getInteger(BundleFields.BLOCK_TYPE);
+        }
+        return blockType;
+    }
+
+    /**
+     *
+     * @param content The content will be Base64 encoded and the original length will be
+     *                be stored. Call {@link #getPlainContentLength()} to get this value.
+     */
     public void setPlainContent(String content) {
         block.put(BundleFields.BLOCK_CONTENT_LENGTH, content.length());
         block.put(BundleFields.BLOCK_CONTENT, Base64.getEncoder().encodeToString(content.getBytes()));
         LOGGER.debug("content length is {}", content.length());
+    }
+
+    public int getPlainContentLength() {
+        return block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH);
     }
 
     public void setEncodedContentLength(int length) {
@@ -36,9 +60,6 @@ public final class BlockAdapter {
         return block.getString(BundleFields.BLOCK_CONTENT);
     }
 
-    public int getPlainContentLength() {
-        return block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH);
-    }
 
     public void setFlag(BlockFlags flag, boolean value) {
         int currentFlags = 0;
