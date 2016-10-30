@@ -7,34 +7,34 @@ import io.vertx.core.net.NetServerOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class TManListener extends AbstractVerticle {
+public final class DataProviderListener extends AbstractVerticle {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TManListener.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DataProviderListener.class);
     private static final int DEFAULT_PORT = 13152;
     private final int listenerPort;
 
-    public TManListener(int listenerPort) {
+    public DataProviderListener(int listenerPort) {
         this.listenerPort = listenerPort;
     }
-    public TManListener() {
+    public DataProviderListener() {
         this(DEFAULT_PORT);
     }
 
     @Override
     public void start(Future<Void> startup) {
         NetServerOptions options = new NetServerOptions();
-        NetServer tManListener = vertx.createNetServer(options);
-        tManListener.connectHandler(connectedSocket -> {
+        NetServer listener = vertx.createNetServer(options);
+        listener.connectHandler(connectedSocket -> {
 
             LOGGER.debug("connection established from {}:{}", connectedSocket.localAddress().host(), connectedSocket.localAddress().host());
 
-            DataProviderProxy socketHandler = new DataProviderProxy(connectedSocket);
-            vertx.deployVerticle(socketHandler);
+            DataProviderProxy providerProxy = new DataProviderProxy(connectedSocket);
+            vertx.deployVerticle(providerProxy);
         });
 
-        tManListener.listen(this.listenerPort, "0.0.0.0", instance -> {
+        listener.listen(this.listenerPort, "0.0.0.0", instance -> {
             if (instance.succeeded()) {
-                LOGGER.info("TManListener ready");
+                LOGGER.info("DataProviderListener ready");
                 startup.complete();
             }
             else {
