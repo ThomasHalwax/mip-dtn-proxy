@@ -3,7 +3,6 @@ package io.syncpoint.dtn;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,19 +18,17 @@ public final class MipProxy extends AbstractVerticle{
     @Override
     public void start(Future<Void> future) {
 
-        final JsonObject config = config();
-        if (config.isEmpty()) {
-            LOGGER.error("no config found. apply a json config file via --conf param");
+        if (config().isEmpty()) {
             future.fail("no config found. apply a json config file via --conf param");
             vertx.close();
             return;
         }
-        LOGGER.debug("config: {}", config.encode());
+        LOGGER.debug("config: {}", config().encode());
 
-        verticles.put(DciListener.class, new DeploymentOptions());
-        verticles.put(DataProviderListener.class, new DeploymentOptions());
+        verticles.put(DciListener.class, new DeploymentOptions().setConfig(config().getJsonObject("dci")));
+        verticles.put(DataProviderListener.class, new DeploymentOptions().setConfig(config().getJsonObject("dem")));
         verticles.put(MessageForwarder.class, new DeploymentOptions());
-        verticles.put(DtnApiHandler.class, new DeploymentOptions().setConfig(config.getJsonObject("api")));
+        verticles.put(DtnApiHandler.class, new DeploymentOptions().setConfig(config().getJsonObject("api")));
 
         // TODO: build some kind of supervisor who monitors the created verticles and restarts them on failure
 
