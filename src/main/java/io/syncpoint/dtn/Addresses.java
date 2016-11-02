@@ -20,4 +20,7 @@ public final class Addresses {
     public static final String EVENT_BUNDLE_RECEIVED = "event://bundle/received";
     public static final String COMMAND_SEND_BUNDLE = "command://bundle/send";
 
+    public static final String COMMAND_REGISTER_PROXY = "command://proxy/register";
+    public static final String COMMAND_UNREGISTER_PROXY = "command://proxy/unregister";
+
 }

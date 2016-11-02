@@ -33,7 +33,7 @@ public final class MessageForwarder extends AbstractVerticle {
                 });
             }
             else {
-                LOGGER.warn("unsupported url");
+                // must be
             }
         });
 

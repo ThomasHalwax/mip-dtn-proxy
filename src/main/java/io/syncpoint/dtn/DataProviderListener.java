@@ -26,7 +26,9 @@ public final class DataProviderListener extends AbstractVerticle {
         NetServer listener = vertx.createNetServer(options);
         listener.connectHandler(connectedSocket -> {
 
-            LOGGER.debug("connection established from {}:{}", connectedSocket.localAddress().host(), connectedSocket.localAddress().host());
+            LOGGER.debug("connection established from {}:{}",
+                    connectedSocket.localAddress().host(),
+                    connectedSocket.localAddress().port());
 
             DataProviderProxy providerProxy = new DataProviderProxy(connectedSocket);
             vertx.deployVerticle(providerProxy);

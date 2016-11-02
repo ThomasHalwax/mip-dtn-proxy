@@ -58,6 +58,18 @@ public final class DtnApiHandler extends AbstractVerticle {
             send(BundleSerializer.serialize(bundle));
             LOGGER.debug("sent bundle");
         });
+
+        vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
+            String localDPProxyAddress = localNodeAddress.body().toString();
+            send("registration add " + localDPProxyAddress);
+            LOGGER.debug("added registion for local DP proxy {}", localDPProxyAddress);
+        });
+
+        vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
+            String localDPProxyAddress = localNodeAddress.body().toString();
+            send("registration del " + localDPProxyAddress);
+            LOGGER.debug("removed registion for local DP proxy {}", localDPProxyAddress);
+        });
     }
 
     private void handleApiMessage(String message) {
