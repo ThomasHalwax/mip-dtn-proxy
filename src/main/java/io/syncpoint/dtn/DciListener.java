@@ -28,11 +28,12 @@ public final class DciListener extends AbstractVerticle {
     // KEY = IP Address, VALUES = Broadcast Address
     private final Map<String, String> myIpAddresses = getLocalIpAddresses();
 
-    private final Pattern dciReplicationNodeIPAddressPattern = Pattern.compile("<ReplicationNodeIPAddress>(?:[0-9]{1,3}\\.){3}[0-9]{1,3}</ReplicationNodeIPAddress>");
-    private final Pattern dciReplicationNodePortPattern = Pattern.compile("<ReplicationNodePort>\\d+</ReplicationNodePort>");
+    private final Pattern dciReplicationNodeIPAddressPattern =
+            Pattern.compile("<ReplicationNodeIPAddress>(?:[0-9]{1,3}\\.){3}[0-9]{1,3}</ReplicationNodeIPAddress>");
+    private final Pattern dciReplicationNodePortPattern =
+            Pattern.compile("<ReplicationNodePort>\\d+</ReplicationNodePort>");
 
     private DatagramSocket listeningSocket;
-    private DatagramSocket sendingSocket;
 
     @Override
     public void start() {
@@ -113,7 +114,7 @@ public final class DciListener extends AbstractVerticle {
                 LOGGER.debug("broadcasted DCI");
             }
             else {
-                LOGGER.warn("failed to broadcast DCI: {}", broadcastHandler.cause().toString());
+                LOGGER.warn("failed to broadcast DCI: {}", broadcastHandler.cause());
             }
         });
     }

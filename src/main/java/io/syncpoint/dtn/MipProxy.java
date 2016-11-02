@@ -29,6 +29,7 @@ public final class MipProxy extends AbstractVerticle{
         verticles.put(DataProviderListener.class, new DeploymentOptions().setConfig(config().getJsonObject("dem")));
         verticles.put(MessageForwarder.class, new DeploymentOptions());
         verticles.put(DtnApiHandler.class, new DeploymentOptions().setConfig(config().getJsonObject("api")));
+        verticles.put(DataReceiverSupervisor.class, new DeploymentOptions());
 
         // TODO: build some kind of supervisor who monitors the created verticles and restarts them on failure
 
