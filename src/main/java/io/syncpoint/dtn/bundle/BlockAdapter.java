@@ -26,11 +26,7 @@ public final class BlockAdapter {
     }
 
     public int getBlockType() {
-        int blockType = 1;
-        if (block.containsKey(BundleFields.BLOCK_TYPE)) {
-            blockType = block.getInteger(BundleFields.BLOCK_TYPE);
-        }
-        return blockType;
+        return block.getInteger(BundleFields.BLOCK_TYPE, 1);
     }
 
     /**
@@ -45,7 +41,7 @@ public final class BlockAdapter {
     }
 
     public int getPlainContentLength() {
-        return block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH);
+        return block.getInteger(BundleFields.BLOCK_CONTENT_LENGTH, 0);
     }
 
     public void setEncodedContentLength(int length) {
@@ -57,7 +53,7 @@ public final class BlockAdapter {
     }
 
     public String getEncodedContent() {
-        return block.getString(BundleFields.BLOCK_CONTENT);
+        return block.getString(BundleFields.BLOCK_CONTENT, "");
     }
 
 
@@ -87,11 +83,8 @@ public final class BlockAdapter {
     }
 
     public String getFlags() {
+        int currentFlags = block.getInteger(BundleFields.BLOCK_FLAGS, 0);
 
-        int currentFlags = 0;
-        if (block.containsKey(BundleFields.BLOCK_FLAGS)) {
-            currentFlags = block.getInteger(BundleFields.BLOCK_FLAGS);
-        }
         BlockFlagsAdapter adapter = new BlockFlagsAdapter(currentFlags);
 
         StringBuilder flags = new StringBuilder();

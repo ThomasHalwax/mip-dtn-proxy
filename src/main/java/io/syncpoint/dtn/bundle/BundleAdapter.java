@@ -30,7 +30,7 @@ public final class BundleAdapter {
     }
 
     public String getPrimaryBlockField(String key) {
-        String value = bundle.getString(key);
+        String value = bundle.getString(key, "");
         if (value == null) {
             return "";
         }
@@ -68,7 +68,7 @@ public final class BundleAdapter {
     public int numberOfBlocksAdded() {
         return blocks.size();
     }
-    public int numberOfBlocksExpected() { return Integer.parseInt(bundle.getString(BundleFields.NUMBER_OF_BLOCKS));}
+    public int numberOfBlocksExpected() { return Integer.parseInt(bundle.getString(BundleFields.NUMBER_OF_BLOCKS, "0"));}
 
     public Iterator<Object> blockIterator() {
         return blocks.iterator();
