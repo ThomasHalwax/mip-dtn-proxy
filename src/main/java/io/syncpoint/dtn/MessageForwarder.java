@@ -57,5 +57,24 @@ public final class MessageForwarder extends AbstractVerticle {
             LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
 
         });
+
+        // handle T_OPEN_REQUESTS
+        vertx.eventBus().localConsumer(Addresses.COMMAND_OPEN_TMAN_CONNECTION, transport -> {
+            String tOpenRequest = (String)transport.body();
+
+            BundleAdapter bundle = new BundleAdapter();
+            bundle.setDestination(transport.headers().get("destination"));
+            bundle.setSource(transport.headers().get("source"));
+            BundleFlagsAdapter flags = new BundleFlagsAdapter();
+            flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
+
+            bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
+            BlockAdapter payload = new BlockAdapter();
+            payload.setPlainContent(tOpenRequest);
+            bundle.addBlock(payload.getBlock());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
+            LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_OPEN_TMAN_CONNECTION);
+        });
     }
 }

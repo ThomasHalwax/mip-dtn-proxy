@@ -23,4 +23,7 @@ public final class Addresses {
     public static final String COMMAND_REGISTER_PROXY = "command://proxy/register";
     public static final String COMMAND_UNREGISTER_PROXY = "command://proxy/unregister";
 
+    public static final String COMMAND_OPEN_TMAN_CONNECTION = "command://tman/open";
+    public static final String COMMAND_CLOSE_TMAN_CONNECTION = "command://tman/close";
+
 }

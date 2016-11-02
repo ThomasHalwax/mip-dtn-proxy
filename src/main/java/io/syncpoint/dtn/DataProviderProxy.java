@@ -3,13 +3,18 @@ package io.syncpoint.dtn;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.net.NetSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Base64;
+
 public final class DataProviderProxy extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataProviderProxy.class);
+    private static final Base64.Encoder encoder = Base64.getEncoder();
+    private static final Base64.Decoder decoder = Base64.getDecoder();
 
     private static final int T_OPEN_REQ_LENGTH = 30;
     private static final int T_PREAMBLE_LENGTH = 10;
@@ -73,9 +78,17 @@ public final class DataProviderProxy extends AbstractVerticle {
 
                 LOGGER.debug("received T_OPEN_REQ from {} to {}", sourceNodeId, destinationNodeId);
 
-                vertx.eventBus().localConsumer(ADDRESS_PREFIX + sourceNodeId, destinationMessageHandler());
-                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, ADDRESS_PREFIX + sourceNodeId);
-                // TODO: send T_OPEN_REQ to destination DEM
+                String channelAddress = ADDRESS_PREFIX + destinationNodeId + "|" + sourceNodeId;
+                vertx.eventBus().localConsumer(channelAddress, channelMessageHandler());
+                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, channelAddress);
+
+                DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
+                tOpenRequestOptions.addHeader("source", ADDRESS_PREFIX + sourceNodeId);
+                tOpenRequestOptions.addHeader("destination", ADDRESS_PREFIX + destinationNodeId);
+                vertx.eventBus().publish(Addresses.COMMAND_OPEN_TMAN_CONNECTION,
+                        buffer.getString(0, T_OPEN_REQ_LENGTH),
+                        tOpenRequestOptions
+                );
 
                 if (buffer.length() > T_OPEN_REQ_LENGTH) {
                     buffer = buffer.getBuffer(T_OPEN_REQ_LENGTH, buffer.length());
@@ -103,7 +116,7 @@ public final class DataProviderProxy extends AbstractVerticle {
         };
     }
 
-    private Handler<Message<Object>> destinationMessageHandler() {
+    private Handler<Message<Object>> channelMessageHandler() {
         return message -> {
             LOGGER.debug("received data for local DEM");
         };
