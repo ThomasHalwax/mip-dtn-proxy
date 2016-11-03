@@ -9,18 +9,12 @@ import io.vertx.core.net.NetSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Base64;
-
 public final class DataProviderProxy extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataProviderProxy.class);
-    private static final Base64.Encoder encoder = Base64.getEncoder();
-    private static final Base64.Decoder decoder = Base64.getDecoder();
 
     private static final int T_OPEN_REQ_LENGTH = 30;
     private static final int T_PREAMBLE_LENGTH = 10;
-    private static final String ADDRESS_PREFIX = "dem://";
     private static final String TERMINAL_STRING = "00000002T9\r\n";
-    private static final String T_CHKCON = "00000002T4";
     private static final String T_ABRT_PRECONDITION_FAILED = "00000006T3|412";
     private final NetSocket clientSocket;
 
@@ -38,7 +32,7 @@ public final class DataProviderProxy extends AbstractVerticle {
         clientSocket.handler(preT1Handler());
 
         clientSocket.closeHandler(socketClosed -> {
-            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, ADDRESS_PREFIX + sourceNodeId);
+            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + sourceNodeId);
             LOGGER.debug("socket was closed, undeploying handler verticle");
             vertx.undeploy(deploymentID(), undeploy -> {
                 if (undeploy.succeeded()) {
@@ -49,6 +43,8 @@ public final class DataProviderProxy extends AbstractVerticle {
                 }
             });
         });
+
+        LOGGER.debug("proxy for socket {} is ready", clientSocket.localAddress().host());
     }
 
     /**
@@ -60,7 +56,6 @@ public final class DataProviderProxy extends AbstractVerticle {
      */
     private Handler<Buffer> preT1Handler() {
         return data -> {
-
             LOGGER.debug(">> {}", data.toString());
             buffer.appendBuffer(data);
             if (buffer.length() >= T_OPEN_REQ_LENGTH) {
@@ -78,13 +73,13 @@ public final class DataProviderProxy extends AbstractVerticle {
 
                 LOGGER.debug("received T_OPEN_REQ from {} to {}", sourceNodeId, destinationNodeId);
 
-                String channelAddress = ADDRESS_PREFIX + destinationNodeId + "|" + sourceNodeId;
-                vertx.eventBus().localConsumer(channelAddress, channelMessageHandler());
+                String channelAddress = Addresses.PREFIX + destinationNodeId + "|" + sourceNodeId;
+                vertx.eventBus().localConsumer(channelAddress, remoteToSocketHandler());
                 vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, channelAddress);
 
                 DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
-                tOpenRequestOptions.addHeader("source", ADDRESS_PREFIX + sourceNodeId);
-                tOpenRequestOptions.addHeader("destination", ADDRESS_PREFIX + destinationNodeId);
+                tOpenRequestOptions.addHeader("source", Addresses.PREFIX + sourceNodeId);
+                tOpenRequestOptions.addHeader("destination", Addresses.PREFIX + destinationNodeId);
                 vertx.eventBus().publish(Addresses.COMMAND_OPEN_TMAN_CONNECTION,
                         buffer.getString(0, T_OPEN_REQ_LENGTH),
                         tOpenRequestOptions
@@ -96,7 +91,7 @@ public final class DataProviderProxy extends AbstractVerticle {
                 else {
                     buffer = Buffer.buffer();
                 }
-                clientSocket.handler(tManHandler());
+                clientSocket.handler(socketToRemoteHandler());
             }
         };
     }
@@ -105,7 +100,7 @@ public final class DataProviderProxy extends AbstractVerticle {
      *
      * @return a handler for all post T1 messages
      */
-    private Handler<Buffer> tManHandler() {
+    private Handler<Buffer> socketToRemoteHandler() {
         return data -> {
             if (TERMINAL_STRING.equals(data.toString())) {
                 LOGGER.info("closing socket due to termination signal");
@@ -116,7 +111,7 @@ public final class DataProviderProxy extends AbstractVerticle {
         };
     }
 
-    private Handler<Message<Object>> channelMessageHandler() {
+    private Handler<Message<Object>> remoteToSocketHandler() {
         return message -> {
             LOGGER.debug("received data for local DEM");
         };

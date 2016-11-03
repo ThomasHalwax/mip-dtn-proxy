@@ -1,6 +1,7 @@
 package io.syncpoint.dtn;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
@@ -8,7 +9,7 @@ import io.vertx.core.eventbus.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.Inet6Address;
+import java.net.Inet4Address;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -36,7 +37,7 @@ public final class DciListener extends AbstractVerticle {
     private DatagramSocket listeningSocket;
 
     @Override
-    public void start() {
+    public void start(Future<Void> startup) {
 
         DatagramSocketOptions listeningSocketOptions = new DatagramSocketOptions();
         listeningSocketOptions.setBroadcast(true);
@@ -47,6 +48,7 @@ public final class DciListener extends AbstractVerticle {
                 config().getString("host", DEFAULT_DCI_HOST), instance -> {
            if (instance.succeeded()) {
                LOGGER.debug("dci listener listens on {}", listeningSocket.localAddress().toString());
+               startup.complete();
 
                listeningSocket.handler(datagramPacket -> {
                    if (myIpAddresses.keySet().contains(datagramPacket.sender().host())) {
@@ -66,8 +68,8 @@ public final class DciListener extends AbstractVerticle {
                    else if (xmlDci.contains("REPLY")) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
-                       LOGGER.debug("DCI REPLY");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLYED, xmlDci);
+                       LOGGER.debug("DCI REPLY, but is handled by DCI ANNOUNCE");
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, xmlDci);
                    }
                    else {
                        LOGGER.debug("INVALID DCI? {}", xmlDci);
@@ -75,27 +77,22 @@ public final class DciListener extends AbstractVerticle {
                });
            }
            else {
+               startup.fail(instance.cause());
                LOGGER.error("failed to listen", instance.cause());
-               LOGGER.warn("undeploying self");
-               vertx.undeploy(deploymentID());
            }
         });
 
         DatagramSocketOptions sendingSocketOptions = new DatagramSocketOptions();
         sendingSocketOptions.setBroadcast(true);
 
-        //sendingSocket = vertx.createDatagramSocket(sendingSocketOptions);
-
-        // modify DCI content and broadcast message to DCI listening port
-        // target of the message are all local dem instances
         vertx.eventBus().localConsumer(Addresses.COMMAND_ANNOUNCE_DCI, this::handleRemoteDciMessage);
-
-        // consume remote replies
-        // since we don't have an correlation information we need to broadcast
-        // replies, too
         vertx.eventBus().localConsumer(Addresses.COMMAND_REPLY_DCI, this::handleRemoteDciMessage);
     }
 
+    // modify DCI content and broadcast message to DCI listening port
+    // target of the message are all local dem instances
+    // in case of aDCI reply we don't have an correlation information so we need to broadcast
+    // replies, too
     private void handleRemoteDciMessage(Message<Object> message) {
         String remoteDci = new String(Base64.getDecoder().decode((String)message.body()));
 
@@ -103,18 +100,18 @@ public final class DciListener extends AbstractVerticle {
                 .replaceAll("<ReplicationNodeIPAddress>" + config().getString("host") + "</ReplicationNodeIPAddress>");
         proxyDci =  dciReplicationNodePortPattern.matcher(proxyDci)
                 .replaceAll("<ReplicationNodePort>" + String.valueOf(DEFAULT_DCI_PORT) + "</ReplicationNodePort>");
-
         broadcastDci(Buffer.buffer(proxyDci));
     }
 
     private void broadcastDci(Buffer dciBuffer) {
-
-        listeningSocket.send(dciBuffer, DEFAULT_DCI_PORT, myIpAddresses.get(config().getString("host")), broadcastHandler -> {
+        String destinationBroadcastAddress = myIpAddresses.get(config().getString("host"));
+        LOGGER.debug("broadcasting DCI to {}\n{}", destinationBroadcastAddress, dciBuffer.toString());
+        listeningSocket.send(dciBuffer, DEFAULT_DCI_PORT, destinationBroadcastAddress, broadcastHandler -> {
             if (broadcastHandler.succeeded()) {
-                LOGGER.debug("broadcasted DCI");
+                LOGGER.debug("broadcasting DCI succeeded");
             }
             else {
-                LOGGER.warn("failed to broadcast DCI: {}", broadcastHandler.cause());
+                LOGGER.warn("failed to broadcast DCI: {}", broadcastHandler.cause().getMessage());
             }
         });
     }
@@ -122,7 +119,7 @@ public final class DciListener extends AbstractVerticle {
     private Map<String, String> getLocalIpAddresses() {
         Map<String, String> localAddresses = new HashMap<>();
         Predicate<InterfaceAddress> isNotLoopback = interfaceAddress -> !interfaceAddress.getAddress().isLoopbackAddress();
-        Predicate<InterfaceAddress> isIPv4 = interfaceAddress -> !(interfaceAddress.getAddress() instanceof Inet6Address);
+        Predicate<InterfaceAddress> isIPv4 = interfaceAddress -> (interfaceAddress.getAddress() instanceof Inet4Address);
 
         try {
             final Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -132,9 +129,14 @@ public final class DciListener extends AbstractVerticle {
                 networkInterface.getInterfaceAddresses().stream()
                         .filter(isNotLoopback)
                         .filter(isIPv4)
-                        .forEach(ifaceAddress -> localAddresses.put(
-                                ifaceAddress.getAddress().getHostAddress(),
-                                ifaceAddress.getBroadcast().getHostAddress()));
+                        .forEach(ifaceAddress -> {
+                            localAddresses.put(
+                                    ifaceAddress.getAddress().getHostAddress(),
+                                    ifaceAddress.getBroadcast().getHostAddress());
+                            LOGGER.debug("added local ip {} with broadcast address {}",
+                                    ifaceAddress.getAddress().getHostAddress(),
+                                    ifaceAddress.getBroadcast().getHostAddress());
+                        });
             }
         } catch (SocketException networkException) {
             LOGGER.error("failed to enumerate network interfaces", networkException);

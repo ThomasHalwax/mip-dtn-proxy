@@ -40,7 +40,7 @@ public final class MipProxy extends AbstractVerticle{
                     LOGGER.info("deployment of {} succeeded.", verticle.getName());
                 }
                 else {
-                    LOGGER.warn("deployment of {} failed: {}", verticle.getName(), deployment.cause());
+                    LOGGER.warn("deployment of {} failed: {}", verticle.getName(), deployment.cause().getMessage());
                 }
             });
         }

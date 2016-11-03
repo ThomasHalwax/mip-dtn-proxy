@@ -18,28 +18,30 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
+            String destinationAddress;
+
             if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.getDestination())) {
                 LOGGER.debug("forwarding dci announce to local broadcaster ...");
-                bundle.blockIterator().forEachRemaining(b -> {
-                    BlockAdapter block = new BlockAdapter((JsonObject)b);
-                    vertx.eventBus().send(Addresses.COMMAND_ANNOUNCE_DCI, block.getEncodedContent());
-                });
+                destinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
             }
             else if (Addresses.DTN_DCI_REPLY_ADDRESS.equals(bundle.getDestination())) {
                 LOGGER.debug("forwarding dci reply to local broadcaster ...");
-                bundle.blockIterator().forEachRemaining(b -> {
-                    BlockAdapter block = new BlockAdapter((JsonObject)b);
-                    vertx.eventBus().send(Addresses.COMMAND_REPLY_DCI, block.getEncodedContent());
-                });
+                destinationAddress = Addresses.COMMAND_REPLY_DCI;
             }
             else {
-                // must be
+                LOGGER.debug("forwarding bundle data to local consumer ...");
+                destinationAddress = bundle.getDestination();
             }
+
+            bundle.blockIterator().forEachRemaining(b -> {
+                BlockAdapter block = new BlockAdapter((JsonObject)b);
+                // TODO: only send payload block
+                vertx.eventBus().publish(destinationAddress, block.getEncodedContent());
+            });
         });
 
         // handle a locally received DCI
         vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
-
             String xmlDci = (String)transport.body();
 
             BundleAdapter bundle = new BundleAdapter();
@@ -55,10 +57,19 @@ public final class MessageForwarder extends AbstractVerticle {
 
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
             LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
-
         });
 
-        // handle T_OPEN_REQUESTS
+        /**
+         * handles the messages created by a DataProviderProxy instance. A T_OPEN_REQ
+         * was issued by a DEM instance and this request contains the source and destination
+         * nodeID. We use this data to send a bundle to the appropriate DTN destination.
+         * The {@link DataReceiverSupervisor} listens to all bundles which destinations are
+         * the known (local) DEM nodeIDs
+         *
+         * After the "channel" is established between a {@link DataProviderProxy} and a {@link DataReceiverProxy}
+         * the instances will communicate without the interception of the {@link MessageForwarder}.
+         *
+         */
         vertx.eventBus().localConsumer(Addresses.COMMAND_OPEN_TMAN_CONNECTION, transport -> {
             String tOpenRequest = (String)transport.body();
 
@@ -66,7 +77,8 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.setDestination(transport.headers().get("destination"));
             bundle.setSource(transport.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
-            flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
+            // TODO: verify the correct semantics of the flag
+            //flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
 
             bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
             BlockAdapter payload = new BlockAdapter();
