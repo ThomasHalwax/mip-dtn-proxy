@@ -17,21 +17,35 @@ public class HelperTest {
             "  </DciBody>\n" +
             "</DCI>";
 
+    static final String T_OPEN_REQUEST = "00000022T1|123456789|987654321";
+
     @Test
     public void findElementValue$NodeID() {
-        final String nodeID = Helper.findElementValue("NodeID", DCI);
+        final String nodeID = Helper.getElementValue("NodeID", DCI);
         Assert.assertEquals("123000123", nodeID);
     }
 
     @Test
     public void findElementValue$ReplicationNodeIPAddress() {
-        final String ReplicationNodeIPAddress = Helper.findElementValue("ReplicationNodeIPAddress", DCI);
+        final String ReplicationNodeIPAddress = Helper.getElementValue("ReplicationNodeIPAddress", DCI);
         Assert.assertEquals("192.168.168.68", ReplicationNodeIPAddress);
     }
 
     @Test
     public void findElementValue$ReplicationNodePort() {
-        final String ReplicationNodePort = Helper.findElementValue("ReplicationNodePort", DCI);
+        final String ReplicationNodePort = Helper.getElementValue("ReplicationNodePort", DCI);
         Assert.assertEquals("10000", ReplicationNodePort);
+    }
+
+    @Test
+    public void nodeIdFromTOpenRequest$source () {
+        final String sourceNodeId = Helper.getSourceNodeId(T_OPEN_REQUEST);
+        Assert.assertEquals("123456789", sourceNodeId);
+    }
+
+    @Test
+    public void nodeIdFromTOpenRequest$destination () {
+        final String destinationNodeId = Helper.getDestinationNodeId(T_OPEN_REQUEST);
+        Assert.assertEquals("987654321", destinationNodeId);
     }
 }

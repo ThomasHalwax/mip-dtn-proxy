@@ -1,17 +1,20 @@
 package io.syncpoint.dtn;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 public final class DataReceiverSupervisor extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataReceiverSupervisor.class);
+    private final Base64.Decoder decoder = Base64.getDecoder();
 
     // keys: DEM node IDs, values: a JSON object which holds IP address and port of the DEM
     private final Map<String, JsonObject> knownDemInstances = new HashMap<>();
@@ -32,16 +35,16 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
             String xmlDci = dci.body().toString();
             addToKnownDemInstances(xmlDci);
 
-            String tOpenRequestAddress = Addresses.PREFIX + Helper.findElementValue("NodeID", xmlDci);
+            String tOpenRequestAddress = Addresses.PREFIX + Helper.getElementValue("NodeID", xmlDci);
             vertx.eventBus().localConsumer(tOpenRequestAddress, tOpenRequestHandler());
             vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, tOpenRequestAddress);
         };
     }
 
     private void addToKnownDemInstances(String xmlDci) {
-        final String nodeID = Helper.findElementValue("NodeID", xmlDci);
-        final String replicationNodeIPAddress = Helper.findElementValue("ReplicationNodeIPAddress", xmlDci);
-        final String replicationNodePort = Helper.findElementValue("ReplicationNodePort", xmlDci);
+        final String nodeID = Helper.getElementValue("NodeID", xmlDci);
+        final String replicationNodeIPAddress = Helper.getElementValue("ReplicationNodeIPAddress", xmlDci);
+        final String replicationNodePort = Helper.getElementValue("ReplicationNodePort", xmlDci);
 
         JsonObject connectionInfo = new JsonObject();
         connectionInfo.put("ipAddress", replicationNodeIPAddress);
@@ -52,9 +55,28 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
 
     private Handler<Message<Object>> tOpenRequestHandler() {
         return message -> {
-            LOGGER.debug("received T_OPEN_REQ, will deploy a new DataReceiverProxy for {}", message.body().toString());
-        };
+            String tOpenRequest = decoder.decode((String)message.body()).toString();
+            String destinationNodeId = Helper.getDestinationNodeId(tOpenRequest);
+            LOGGER.debug("received T_OPEN_REQ, will deploy a new DataReceiverProxy for {}", tOpenRequest);
 
+            if (! knownDemInstances.containsKey(destinationNodeId)) {
+                LOGGER.warn("received T_OPEN_REQ for an unknown DEM instance: {}", destinationNodeId);
+                return;
+            }
+
+            JsonObject config = new JsonObject();
+            config.put("connectionInfo", knownDemInstances.get(destinationNodeId));
+            config.put("tOpenRequest", tOpenRequest);
+
+            DeploymentOptions drOptions = new DeploymentOptions().setConfig(config);
+            vertx.deployVerticle(DataReceiverProxy.class.getName(), drOptions, deployment -> {
+                if (deployment.failed()) {
+                    LOGGER.warn("failed to deploy new verticle for T_OPEN_REQ: {}", deployment.cause().toString());
+                }
+            });
+        };
     }
+
+
 
 }

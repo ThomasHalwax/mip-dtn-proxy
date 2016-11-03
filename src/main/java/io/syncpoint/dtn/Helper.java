@@ -5,7 +5,7 @@ public final class Helper {
         // utility class
     }
 
-    public static String findElementValue(final String xmlElementName, final String source) {
+    public static String getElementValue(final String xmlElementName, final String source) {
         final String startElement = "<" + xmlElementName + ">";
         final String endElement = "</" + xmlElementName + ">";
 
@@ -22,4 +22,18 @@ public final class Helper {
         return source.substring(startPos + startElement.length(), endPos);
     }
 
+    /**
+     *
+     * @param tOpenRequest
+     * @return the destination node ID
+     */
+    public static String getDestinationNodeId(String tOpenRequest) {
+        // 00000022T1|123456789|987654321
+        return tOpenRequest.substring(21, tOpenRequest.length());
+    }
+
+    public static String getSourceNodeId(String tOpenRequest) {
+        // 00000022T1|123456789|987654321
+        return tOpenRequest.substring(11, 20);
+    }
 }
