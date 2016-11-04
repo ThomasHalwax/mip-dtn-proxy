@@ -35,9 +35,9 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
             String xmlDci = dci.body().toString();
             addToKnownDemInstances(xmlDci);
 
-            String tOpenRequestAddress = Addresses.PREFIX + Helper.getElementValue("NodeID", xmlDci);
+            String tOpenRequestAddress = Helper.getElementValue("NodeID", xmlDci);
             vertx.eventBus().localConsumer(tOpenRequestAddress, tOpenRequestHandler());
-            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, tOpenRequestAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + tOpenRequestAddress);
         };
     }
 
@@ -55,9 +55,9 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
 
     private Handler<Message<Object>> tOpenRequestHandler() {
         return message -> {
-            String tOpenRequest = decoder.decode((String)message.body()).toString();
+            String tOpenRequest = new String(decoder.decode((String)message.body()));
+            LOGGER.debug("received T_OPEN_REQ {}", tOpenRequest);
             String destinationNodeId = Helper.getDestinationNodeId(tOpenRequest);
-            LOGGER.debug("received T_OPEN_REQ, will deploy a new DataReceiverProxy for {}", tOpenRequest);
 
             if (! knownDemInstances.containsKey(destinationNodeId)) {
                 LOGGER.warn("received T_OPEN_REQ for an unknown DEM instance: {}", destinationNodeId);
@@ -71,12 +71,9 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
             DeploymentOptions drOptions = new DeploymentOptions().setConfig(config);
             vertx.deployVerticle(DataReceiverProxy.class.getName(), drOptions, deployment -> {
                 if (deployment.failed()) {
-                    LOGGER.warn("failed to deploy new verticle for T_OPEN_REQ: {}", deployment.cause().toString());
+                    LOGGER.warn("failed to deploy new verticle for T_OPEN_REQ: {}", deployment.cause().getMessage());
                 }
             });
         };
     }
-
-
-
 }

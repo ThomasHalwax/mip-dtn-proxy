@@ -19,20 +19,17 @@ public final class MessageForwarder extends AbstractVerticle {
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
             String destinationAddress;
-
             if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.getDestination())) {
-                LOGGER.debug("forwarding dci announce to local broadcaster ...");
                 destinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
             }
             else if (Addresses.DTN_DCI_REPLY_ADDRESS.equals(bundle.getDestination())) {
-                LOGGER.debug("forwarding dci reply to local broadcaster ...");
                 destinationAddress = Addresses.COMMAND_REPLY_DCI;
             }
             else {
-                LOGGER.debug("forwarding bundle data to local consumer ...");
-                destinationAddress = bundle.getDestination();
+                destinationAddress = bundle.getDestination().replace(Addresses.PREFIX,"");
             }
 
+            LOGGER.debug("forwarding base64 encoded message to local address {}", destinationAddress);
             bundle.blockIterator().forEachRemaining(b -> {
                 BlockAdapter block = new BlockAdapter((JsonObject)b);
                 // TODO: only send payload block
@@ -70,12 +67,12 @@ public final class MessageForwarder extends AbstractVerticle {
          * the instances will communicate without the interception of the {@link MessageForwarder}.
          *
          */
-        vertx.eventBus().localConsumer(Addresses.COMMAND_OPEN_TMAN_CONNECTION, transport -> {
-            String tOpenRequest = (String)transport.body();
+        vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_TMAN_PDU, pdu -> {
+            String tOpenRequest = pdu.body().toString();
 
             BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(transport.headers().get("destination"));
-            bundle.setSource(transport.headers().get("source"));
+            bundle.setDestination(Addresses.PREFIX + pdu.headers().get("destination"));
+            bundle.setSource(Addresses.PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
             // TODO: verify the correct semantics of the flag
             //flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
@@ -86,7 +83,23 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.addBlock(payload.getBlock());
 
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
-            LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_OPEN_TMAN_CONNECTION);
+            LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_SEND_TMAN_PDU);
+        });
+
+        vertx.eventBus().localConsumer(Addresses.EVENT_SOCKET_CLOSED, message -> {
+            LOGGER.debug("handling {}", Addresses.EVENT_SOCKET_CLOSED);
+
+            BundleAdapter bundle = new BundleAdapter();
+            bundle.setDestination(Addresses.PREFIX + message.body());
+            BlockAdapter payload = new BlockAdapter();
+            payload.setPlainContent("CLOSE_SOCKET");
+            bundle.addBlock(payload.getBlock());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
+        });
+
+        vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
+            LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
     }
 }
