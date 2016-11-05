@@ -110,20 +110,25 @@ public final class DataProviderProxy extends AbstractVerticle {
      * @return a handler for all post T1 messages
      */
     private Handler<Buffer> socketToRemoteHandler() {
-        return data -> {
-            // TODO: add tman parser to verify the correct length of the PDU
-            // if the received data is no TMAN PDU send error and close the socket
-            // the remote socket must be closed, too
-            if (TERMINAL_STRING.equals(data.toString())) {
-                LOGGER.info("closing socket due to termination signal");
-                clientSocket.end();
-                return;
-            }
-            LOGGER.debug("sending {} from {} to {}", data, sourceNodeId, destinationNodeId);
+
+        TmanPduParser parser = new TmanPduParser();
+
+        parser.errorHandler( error -> {
+            LOGGER.error("parsing caused an error: {}", error.getMessage());
+            clientSocket.close();
+        });
+
+        parser.handler(pdu -> {
+            LOGGER.debug("sending {} from {} to {}", pdu.getPduType(), sourceNodeId, destinationNodeId);
             DeliveryOptions pduOptions = new DeliveryOptions();
             pduOptions.addHeader("source", sourceNodeId);
             pduOptions.addHeader("destination", remoteEndpointAddress);
-            vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, data, pduOptions);
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu.getPdu(), pduOptions);
+        });
+
+
+        return data -> {
+            parser.addData(data);
         };
     }
 
