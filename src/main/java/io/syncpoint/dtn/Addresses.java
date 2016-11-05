@@ -10,7 +10,7 @@ public final class Addresses {
     // DTN related addresses
     public static final String DTN_DCI_ANNOUNCE_ADDRESS = PREFIX + "dci/announce";
     public static final String DTN_DCI_REPLY_ADDRESS = PREFIX + "dci/reply";
-
+    public static final String DTN_REPORT_TO_ADDRESS = "dem/report";
 
     // vertx eventbus related addresses
     public static final String COMMAND_ANNOUNCE_DCI = "command://dci/announce";

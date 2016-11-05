@@ -44,11 +44,14 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
             bundle.setSource(Addresses.DTN_DCI_REPLY_ADDRESS);
+
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
             flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
             flags.set(BundleFlags.DELETION_REPORT, true);
-            // TODO: check why HEADER bundle field is used
-            bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
+
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
+
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent(xmlDci);
             bundle.addBlock(payload.getBlock());
@@ -75,12 +78,14 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.setDestination(Addresses.PREFIX + pdu.headers().get("destination"));
             bundle.setSource(Addresses.PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
+
             flags.set(BundleFlags.DELIVERY_REPORT, true);
             // TODO: verify the correct semantics of the flag
             //flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
 
-            // TODO: check why HEADER bundle field is used
-            bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
+
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent(tOpenRequest);
             bundle.addBlock(payload.getBlock());
@@ -97,7 +102,9 @@ public final class MessageForwarder extends AbstractVerticle {
 
             BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
             flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
-            bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flagsAdapter.getFlags()));
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flagsAdapter.getFlags()));
+
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
 
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent("CLOSE_SOCKET");

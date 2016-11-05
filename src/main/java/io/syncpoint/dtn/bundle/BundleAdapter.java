@@ -37,6 +37,10 @@ public final class BundleAdapter {
         return value;
     }
 
+    public boolean hasPrimaryBlockField(String key) {
+        return bundle.containsKey(key);
+    }
+
     public void setSource(String source) {
         setPrimaryBlockField(BundleFields.SOURCE, source);
     }

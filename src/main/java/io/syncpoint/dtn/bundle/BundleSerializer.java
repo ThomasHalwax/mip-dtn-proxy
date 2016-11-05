@@ -21,10 +21,18 @@ public final class BundleSerializer {
         buffer.appendString("bundle put plain\n");
         buffer.appendString(BundleFields.SOURCE).appendString(": ")
                 .appendString(bundle.getPrimaryBlockField(BundleFields.SOURCE)).appendString("\n");
+
         buffer.appendString(BundleFields.DESTINATION).appendString(": ")
                 .appendString(bundle.getPrimaryBlockField(BundleFields.DESTINATION)).appendString("\n");
+
         buffer.appendString(BundleFields.BUNDLE_FLAGS).appendString(": ")
-                .appendString(String.valueOf(bundle.getPrimaryBlockField(BundleFields.HEADER))).appendString("\n");
+                .appendString(String.valueOf(bundle.getPrimaryBlockField(BundleFields.BUNDLE_FLAGS))).appendString("\n");
+
+        if (bundle.hasPrimaryBlockField(BundleFields.REPORT_TO)) {
+            buffer.appendString(BundleFields.REPORT_TO).appendString(": ")
+                    .appendString(bundle.getPrimaryBlockField(BundleFields.REPORT_TO)).appendString("\n");
+        }
+
         buffer.appendString(BundleFields.NUMBER_OF_BLOCKS).appendString(": ")
                 .appendString(String.valueOf(bundle.numberOfBlocksAdded())).appendString("\n\n");
 
@@ -35,10 +43,13 @@ public final class BundleSerializer {
 
             buffer.appendString(BundleFields.BLOCK_TYPE).appendString(": ")
                     .appendString(String.valueOf(block.getBlockType())).appendString("\n");
+
             buffer.appendString(BundleFields.BLOCK_FLAGS).appendString(": ")
                     .appendString(block.getFlags()).appendString("\n");
+
             buffer.appendString(BundleFields.BLOCK_CONTENT_LENGTH).appendString(": ")
                     .appendString(String.valueOf(block.getPlainContentLength())).appendString("\n\n");
+
             buffer.appendString(block.getEncodedContent()).appendString("\n\n");
 
         }

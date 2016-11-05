@@ -112,6 +112,8 @@ public final class DataProviderProxy extends AbstractVerticle {
     private Handler<Buffer> socketToRemoteHandler() {
         return data -> {
             // TODO: add tman parser to verify the correct length of the PDU
+            // if the received data is no TMAN PDU send error and close the socket
+            // the remote socket must be closed, too
             if (TERMINAL_STRING.equals(data.toString())) {
                 LOGGER.info("closing socket due to termination signal");
                 clientSocket.end();

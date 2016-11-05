@@ -45,6 +45,8 @@ public final class DtnApiHandler extends AbstractVerticle {
                 send("protocol extended");
                 send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
                 send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
+                send("endpoint add " + Addresses.DTN_REPORT_TO_ADDRESS);
+                //send("registration list");
                 started.complete();
             }
             else {
@@ -61,7 +63,7 @@ public final class DtnApiHandler extends AbstractVerticle {
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
-            send("registration add " + localDPProxyAddress);
+            send("endpoint add " + localDPProxyAddress);
             LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
         });
 
