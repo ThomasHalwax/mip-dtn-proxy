@@ -46,7 +46,8 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.setSource(Addresses.DTN_DCI_REPLY_ADDRESS);
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
             flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
-
+            flags.set(BundleFlags.DELETION_REPORT, true);
+            // TODO: check why HEADER bundle field is used
             bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent(xmlDci);
@@ -74,9 +75,11 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.setDestination(Addresses.PREFIX + pdu.headers().get("destination"));
             bundle.setSource(Addresses.PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
+            flags.set(BundleFlags.DELIVERY_REPORT, true);
             // TODO: verify the correct semantics of the flag
             //flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
 
+            // TODO: check why HEADER bundle field is used
             bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flags.getFlags()));
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent(tOpenRequest);
@@ -91,6 +94,11 @@ public final class MessageForwarder extends AbstractVerticle {
 
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(Addresses.PREFIX + message.body());
+
+            BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
+            flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
+            bundle.setPrimaryBlockField(BundleFields.HEADER, String.valueOf(flagsAdapter.getFlags()));
+
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent("CLOSE_SOCKET");
             bundle.addBlock(payload.getBlock());

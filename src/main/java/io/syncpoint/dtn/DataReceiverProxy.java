@@ -4,6 +4,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClient;
@@ -53,16 +54,19 @@ public final class DataReceiverProxy extends AbstractVerticle {
 
     private Handler<Message<Object>> remoteToSocketHandler() {
         return encodedPdu -> {
-            final byte[] pdu = decoder.decode((String) encodedPdu.body());
             LOGGER.debug("sending PDU to socket");
+            final byte[] pdu = decoder.decode((String) encodedPdu.body());
             socket.write(Buffer.buffer(pdu));
         };
     }
 
     private Handler<Buffer> socketToRemoteHandler() {
-        return data -> {
-            LOGGER.debug("will send {} to remote", data.toString());
-            // TODO: forward data to receiving DTN side
+        return pdu -> {
+            LOGGER.debug("will send {} to remote", pdu.toString());
+            DeliveryOptions sendPduOptions = new DeliveryOptions();
+            sendPduOptions.addHeader("source", localEndpointAddress);
+            sendPduOptions.addHeader("destination", remoteEndpointAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu, sendPduOptions);
         };
     }
 
