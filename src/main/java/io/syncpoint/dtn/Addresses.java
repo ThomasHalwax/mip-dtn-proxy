@@ -25,9 +25,6 @@ public final class Addresses {
     public static final String COMMAND_REGISTER_PROXY = "command://proxy/register";
     public static final String COMMAND_UNREGISTER_PROXY = "command://proxy/unregister";
 
-    //public static final String COMMAND_OPEN_TMAN_CONNECTION = "command://tman/open";
-    //public static final String COMMAND_CLOSE_TMAN_CONNECTION = "command://tman/close";
-
     public static final String COMMAND_SEND_TMAN_PDU = "command://tman/send";
     public static final String COMMAND_SEND_CLOSE_SOCKET = "command://socket/close";
     public static final String EVENT_SOCKET_CLOSED = "event://socket/closed";
