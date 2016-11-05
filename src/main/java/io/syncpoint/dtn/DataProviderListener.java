@@ -27,9 +27,12 @@ public final class DataProviderListener extends AbstractVerticle {
         listener.connectHandler(connectedSocket -> {
 
             LOGGER.debug("connection established from {}:{}",
-                    connectedSocket.localAddress().host(),
-                    connectedSocket.localAddress().port());
+                    connectedSocket.remoteAddress().host(),
+                    connectedSocket.remoteAddress().port());
 
+            // we need to deploy a new verticle
+            // this will take some time so we disable auto read
+            connectedSocket.pause();
             DataProviderProxy providerProxy = new DataProviderProxy(connectedSocket);
             vertx.deployVerticle(providerProxy);
         });

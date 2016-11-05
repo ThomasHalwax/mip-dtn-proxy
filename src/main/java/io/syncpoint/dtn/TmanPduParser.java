@@ -35,6 +35,7 @@ public final class TmanPduParser {
                 }
                 catch (NumberFormatException numberEx) {
                     errorHandler.accept(numberEx);
+                    return;
                 }
                 parser = pduPayloadParser();
                 parser.accept(dataAvailable);
@@ -64,14 +65,10 @@ public final class TmanPduParser {
 
     // default consumers
     private Consumer<Throwable> defaultErrorHandler() {
-        return throwable -> {
-            LOGGER.error("error parsing TMAN PDU", throwable);
-        };
+        return throwable -> LOGGER.error("error parsing TMAN PDU", throwable);
     }
 
     private Consumer<TManPdu> defaultConsumer() {
-        return buffer -> {
-            LOGGER.info("DEFAULT CONSUMER WITHOUT FUNCTIONALITY");
-        };
+        return buffer -> LOGGER.info("DEFAULT CONSUMER WITHOUT FUNCTIONALITY");
     }
 }

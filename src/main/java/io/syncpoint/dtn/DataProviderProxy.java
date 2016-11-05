@@ -42,15 +42,16 @@ public final class DataProviderProxy extends AbstractVerticle {
         clientSocket.handler(chunk -> parser.addData(chunk));
 
         clientSocket.closeHandler(socketClosed -> {
-            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
-            if (remoteEndpointAddress != null) {
+            LOGGER.debug("socket was closed, undeploying handler verticle");
+            if (hasValidAddresses()) {
+                vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
                 vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, remoteEndpointAddress);
             }
-            LOGGER.debug("socket was closed, undeploying handler verticle");
             vertx.undeploy(deploymentID());
         });
 
-        LOGGER.debug("proxy for socket {} is ready", clientSocket.localAddress().host());
+        LOGGER.debug("proxy for socket {} is ready, waiting for T_OPEN_REQ", clientSocket.localAddress().host());
+        clientSocket.resume();
     }
 
     /**
@@ -121,5 +122,9 @@ public final class DataProviderProxy extends AbstractVerticle {
             }
             clientSocket.write(Buffer.buffer(message));
         };
+    }
+
+    private boolean hasValidAddresses() {
+        return ((localEndpointAddress != null) && (remoteEndpointAddress != null));
     }
 }
