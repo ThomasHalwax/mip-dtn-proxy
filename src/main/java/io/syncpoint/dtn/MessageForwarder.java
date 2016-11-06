@@ -124,6 +124,19 @@ public final class MessageForwarder extends AbstractVerticle {
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
         });
 
+        vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
+            String localDPProxyAddress = localNodeAddress.body().toString();
+            vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, localDPProxyAddress);
+            LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
+        });
+
+        vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
+            String localDPProxyAddress = localNodeAddress.body().toString();
+            vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, localDPProxyAddress);
+            LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
+        });
+
+
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
             //TODO: forward message
             LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);

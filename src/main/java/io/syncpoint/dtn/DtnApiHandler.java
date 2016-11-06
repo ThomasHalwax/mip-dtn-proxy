@@ -66,20 +66,16 @@ public final class DtnApiHandler extends AbstractVerticle {
         // vert.x eventbus listeners
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_BUNDLE, bundleMessage -> {
             JsonObject bundle = (JsonObject) bundleMessage.body();
-            send(BundleSerializer.serialize(bundle));
+            send(BundleSerializer.serialize(bundle), new ApiResponse(StatusCode.CONTINUE));
             LOGGER.debug("sent bundle");
         });
 
-        vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
-            String localDPProxyAddress = localNodeAddress.body().toString();
-            send("registration add " + localDPProxyAddress);
-            LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
+        vertx.eventBus().localConsumer(Addresses.COMMAND_ADD_REGISTRATION, endpointId -> {
+            send("registration add " + endpointId.body());
         });
 
-        vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
-            String localDPProxyAddress = localNodeAddress.body().toString();
-            send("registration del " + localDPProxyAddress);
-            LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
+        vertx.eventBus().localConsumer(Addresses.COMMAND_DELETE_REGISTRATION, endpointId -> {
+            send("registration del " + endpointId.body());
         });
 
         vertx.eventBus().localConsumer(Addresses.QUERY_NODENAME, message -> {
@@ -109,8 +105,13 @@ public final class DtnApiHandler extends AbstractVerticle {
             send("bundle free");
         }
         else {
-            final ApiResponse apiResponse = apiResponses.remove();
-            apiResponse.accept(apiMessage);
+            final ApiResponse apiResponse = apiResponses.poll();
+            if (apiResponse == null) {
+                LOGGER.warn("no response left in API responses");
+            }
+            else {
+                apiResponse.accept(apiMessage);
+            }
         }
     }
 
@@ -140,7 +141,8 @@ public final class DtnApiHandler extends AbstractVerticle {
         dtnSocket.write(message + "\n");
     }
 
-    private void send(Buffer buffer) {
+    private void send(Buffer buffer, ApiResponse expectedResponse) {
+        apiResponses.add(expectedResponse);
         dtnSocket.write(buffer);
     }
 
