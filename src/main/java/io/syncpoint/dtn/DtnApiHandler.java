@@ -33,6 +33,7 @@ public final class DtnApiHandler extends AbstractVerticle {
 
         NetClientOptions options = new NetClientOptions();
         options.setTcpKeepAlive(true);
+        options.setConnectTimeout(5000);
 
         LOGGER.debug("connecting to {}:{}", config().getString("host"), config().getInteger("port"));
         vertx.createNetClient(options).connect(config().getInteger("port"), config().getString("host"), attempt -> {
