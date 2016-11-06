@@ -19,7 +19,6 @@ public final class MessageForwarder extends AbstractVerticle {
                 if (! nodename.endsWith("/")) {
                     nodename = nodename + "/";
                 }
-
             } else {
                 LOGGER.warn("no response for nodename query: {}", response.cause().getMessage());
             }
@@ -54,48 +53,12 @@ public final class MessageForwarder extends AbstractVerticle {
 
         // handle a locally received DCI
         vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
-            String xmlDci = (String)transport.body();
-
-            BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
-            bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
-
-            BundleFlagsAdapter flags = new BundleFlagsAdapter();
-            flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
-            flags.set(BundleFlags.DELETION_REPORT, true);
-            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
-
-            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
-
-            BlockAdapter payload = new BlockAdapter();
-            payload.setPlainContent(xmlDci);
-            bundle.addBlock(payload.getBlock());
-
-            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
-            LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
+            sendDci(Addresses.DTN_DCI_ANNOUNCE_ADDRESS, (String)transport.body());
         });
 
         // handle a locally received DCI
         vertx.eventBus().localConsumer(Addresses.EVENT_DCI_REPLIED, transport -> {
-            String xmlDci = (String)transport.body();
-
-            BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.DTN_DCI_REPLY_ADDRESS);
-            bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
-
-            BundleFlagsAdapter flags = new BundleFlagsAdapter();
-            flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
-            flags.set(BundleFlags.DELETION_REPORT, true);
-            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
-
-            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
-
-            BlockAdapter payload = new BlockAdapter();
-            payload.setPlainContent(xmlDci);
-            bundle.addBlock(payload.getBlock());
-
-            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
-            LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
+            sendDci(Addresses.DTN_DCI_REPLY_ADDRESS, (String)transport.body());
         });
 
         /**
@@ -168,5 +131,24 @@ public final class MessageForwarder extends AbstractVerticle {
             //TODO: forward message
             LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
+    }
+
+    private void sendDci(String destination, String xmlDci) {
+        BundleAdapter bundle = new BundleAdapter();
+        bundle.setDestination(destination);
+        bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
+
+        BundleFlagsAdapter flags = new BundleFlagsAdapter();
+        flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
+        flags.set(BundleFlags.DELETION_REPORT, true);
+        bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
+
+        bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
+
+        BlockAdapter payload = new BlockAdapter();
+        payload.setPlainContent(xmlDci);
+        bundle.addBlock(payload.getBlock());
+
+        vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
     }
 }
