@@ -16,6 +16,9 @@ public final class MessageForwarder extends AbstractVerticle {
             if (response.succeeded()) {
                 LOGGER.debug("got response to nodename query: {}", response.result().body());
                 nodename = response.result().body().toString();
+                if (! nodename.endsWith("/")) {
+                    nodename = nodename + "/";
+                }
 
             } else {
                 LOGGER.warn("no response for nodename query: {}", response.cause().getMessage());
@@ -37,7 +40,8 @@ public final class MessageForwarder extends AbstractVerticle {
                 destinationAddress = Addresses.COMMAND_REPLY_DCI;
             }
             else {
-                destinationAddress = bundle.getDestination().replace(Addresses.PREFIX,"");
+                destinationAddress = bundle.getDestination().replace(
+                        Addresses.DTN_PREFIX + Addresses.APP_PREFIX,"");
             }
 
             LOGGER.debug("forwarding base64 encoded message to local address {}", destinationAddress);
@@ -54,14 +58,37 @@ public final class MessageForwarder extends AbstractVerticle {
 
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
-            bundle.setSource(Addresses.DTN_DCI_REPLY_ADDRESS);
+            bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
 
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
             flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
             flags.set(BundleFlags.DELETION_REPORT, true);
             bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
 
-            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
+
+            BlockAdapter payload = new BlockAdapter();
+            payload.setPlainContent(xmlDci);
+            bundle.addBlock(payload.getBlock());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
+            LOGGER.debug("consumed {} and forwarded bundle to {}", Addresses.EVENT_DCI_ANNOUNCED, Addresses.COMMAND_SEND_BUNDLE);
+        });
+
+        // handle a locally received DCI
+        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_REPLIED, transport -> {
+            String xmlDci = (String)transport.body();
+
+            BundleAdapter bundle = new BundleAdapter();
+            bundle.setDestination(Addresses.DTN_DCI_REPLY_ADDRESS);
+            bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
+
+            BundleFlagsAdapter flags = new BundleFlagsAdapter();
+            flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
+            flags.set(BundleFlags.DELETION_REPORT, true);
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
+
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
 
             BlockAdapter payload = new BlockAdapter();
             payload.setPlainContent(xmlDci);
@@ -86,8 +113,8 @@ public final class MessageForwarder extends AbstractVerticle {
             String tOpenRequest = pdu.body().toString();
 
             BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.PREFIX + pdu.headers().get("destination"));
-            bundle.setSource(Addresses.PREFIX + pdu.headers().get("source"));
+            bundle.setDestination(Addresses.APP_PREFIX + pdu.headers().get("destination"));
+            bundle.setSource(nodename + Addresses.APP_PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
 
             flags.set(BundleFlags.DELIVERY_REPORT, true);
@@ -109,7 +136,7 @@ public final class MessageForwarder extends AbstractVerticle {
             LOGGER.debug("handling {}", Addresses.EVENT_SOCKET_CLOSED);
 
             BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.PREFIX + message.body());
+            bundle.setDestination(Addresses.DTN_PREFIX + Addresses.APP_PREFIX + message.body());
 
             BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
             flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);

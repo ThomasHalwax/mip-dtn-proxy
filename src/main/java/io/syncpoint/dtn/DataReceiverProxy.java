@@ -38,7 +38,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
                 socket = attempt.result();
                 LOGGER.debug("connected to DEM instance");
                 vertx.eventBus().localConsumer(localEndpointAddress, remoteToSocketHandler());
-                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+                // TODO
+                //vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
 
                 socket.handler(socketToRemoteHandler());
                 socket.closeHandler(socketClosedHandler());
@@ -83,7 +84,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
     private Handler<Void> socketClosedHandler() {
         return undef -> {
             LOGGER.warn("socket closed");
-            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+            // TODO
+            //vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
             vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, remoteEndpointAddress);
             vertx.undeploy(deploymentID(), result -> {
                 if (result.failed()) {

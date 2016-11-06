@@ -53,7 +53,7 @@ public final class DciListener extends AbstractVerticle {
                listeningSocket.handler(datagramPacket -> {
                    if (myIpAddresses.keySet().contains(datagramPacket.sender().host())) {
                        LOGGER.debug("ignoring broadcast from myself");
-                       return;
+                       //return;
                    }
                    LOGGER.info("received dci on local network");
 
@@ -68,8 +68,8 @@ public final class DciListener extends AbstractVerticle {
                    else if (xmlDci.contains("REPLY")) {
                        // DCI reply from a locally connected DEM
                        // which is the answer to an announcement sent previously
-                       LOGGER.debug("DCI REPLY, but is handled by DCI ANNOUNCE");
-                       vertx.eventBus().publish(Addresses.EVENT_DCI_ANNOUNCED, xmlDci);
+                       LOGGER.debug("DCI REPLY");
+                       vertx.eventBus().publish(Addresses.EVENT_DCI_REPLIED, xmlDci);
                    }
                    else {
                        LOGGER.debug("INVALID DCI? {}", xmlDci);

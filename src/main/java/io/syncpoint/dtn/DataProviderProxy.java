@@ -17,13 +17,12 @@ public final class DataProviderProxy extends AbstractVerticle {
 
     private final NetSocket clientSocket;
     private final Base64.Decoder decoder = Base64.getDecoder();
+    private final TmanPduParser parser = new TmanPduParser();
 
     private String sourceNodeId;
     private String destinationNodeId;
     private String localEndpointAddress;
     private String remoteEndpointAddress;
-
-    private TmanPduParser parser = new TmanPduParser();
 
     public DataProviderProxy(NetSocket clientSocket) {
         this.clientSocket = clientSocket;
@@ -36,15 +35,13 @@ public final class DataProviderProxy extends AbstractVerticle {
             LOGGER.error("parsing caused an error: {}", error.getMessage());
             clientSocket.end();
         });
-
         parser.handler(preT1Handler());
 
-        clientSocket.handler(chunk -> parser.addData(chunk));
-
+        clientSocket.handler(parser::addData);
         clientSocket.closeHandler(socketClosed -> {
             LOGGER.debug("socket was closed, undeploying handler verticle");
             if (hasValidAddresses()) {
-                vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+                vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, localEndpointAddress);
                 vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, remoteEndpointAddress);
             }
             vertx.undeploy(deploymentID());
@@ -81,8 +78,7 @@ public final class DataProviderProxy extends AbstractVerticle {
             // read: output from source will be piped to destination
             remoteEndpointAddress = sourceNodeId + "|" + destinationNodeId;
             vertx.eventBus().localConsumer(localEndpointAddress, remoteToSocketHandler());
-            // TODO: register proxy should be handeled by the message forwarder
-            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, localEndpointAddress);
 
             DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
             tOpenRequestOptions.addHeader("source", sourceNodeId);

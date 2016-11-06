@@ -5,14 +5,13 @@ public final class Addresses {
         // utility class
     }
 
-    public static final String PREFIX = "dem://";
+    public static final String DTN_PREFIX = "dtn://";
+    public static final String APP_PREFIX = "dem/";
 
     // DTN related addresses
-    public static final String DTN_DCI_ANNOUNCE_ADDRESS = PREFIX + "dci/announce";
-    public static final String DTN_DCI_REPLY_ADDRESS = PREFIX + "dci/reply";
-    public static final String DTN_REPORT_TO_ADDRESS = "dem/report";
-
-
+    public static final String DTN_DCI_ANNOUNCE_ADDRESS = DTN_PREFIX + APP_PREFIX + "dci/announce";
+    public static final String DTN_DCI_REPLY_ADDRESS = DTN_PREFIX + APP_PREFIX + "dci/reply";
+    public static final String DTN_REPORT_TO_ADDRESS = APP_PREFIX + "report";
 
     // vertx eventbus related addresses
     public static final String COMMAND_ANNOUNCE_DCI = "command://dci/announce";
