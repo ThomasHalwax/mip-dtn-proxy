@@ -1,6 +1,7 @@
 package io.syncpoint.dtn;
 
 import io.syncpoint.dtn.api.ApiMessage;
+import io.syncpoint.dtn.api.ApiResponse;
 import io.syncpoint.dtn.api.StatusCode;
 import io.syncpoint.dtn.bundle.BundleParser;
 import io.syncpoint.dtn.bundle.BundleSerializer;
@@ -13,12 +14,18 @@ import io.vertx.core.net.NetSocket;
 import io.vertx.core.parsetools.RecordParser;
 import org.slf4j.Logger;
 
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.function.Consumer;
+
 public final class DtnApiHandler extends AbstractVerticle {
 
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DtnApiHandler.class);
     private static final String INITIAL_API_MESSAGE = "IBR-DTN 1.0.1 (build 1da5501) API 1.0.1";
 
+    private String nodeName = "";
     private NetSocket dtnSocket;
+    private Queue<ApiResponse> apiResponses = new LinkedList<>();
     private BundleParser bundleParser = new BundleParser();
 
     @Override
@@ -43,10 +50,10 @@ public final class DtnApiHandler extends AbstractVerticle {
                 });
                 dtnSocket.handler(recordParser::handle);
                 send("protocol extended");
+                send("nodename", expectedNodenameResponse());
                 send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
                 send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
                 send("endpoint add " + Addresses.DTN_REPORT_TO_ADDRESS);
-                //send("registration list");
                 started.complete();
             }
             else {
@@ -74,14 +81,27 @@ public final class DtnApiHandler extends AbstractVerticle {
         });
     }
 
+    private ApiResponse expectedNodenameResponse() {
+        ApiResponse response = new ApiResponse(StatusCode.OK);
+        response.successHandler(m -> {
+            this.nodeName = m.getMessage().replace("200 NODENAME ", "");
+            LOGGER.debug("DTN node name: {}", this.nodeName);
+        });
+        return response;
+    }
+
     private void handleApiMessage(String message) {
         LOGGER.debug(message);
+
         final ApiMessage apiMessage = ApiMessage.parse(message);
-        if (apiMessage.getCode() == StatusCode.OK) return;
         if (apiMessage.getCode() == StatusCode.NOTIFY_BUNDLE) {
             send("bundle load queue");
             send("bundle get");
             send("bundle free");
+        }
+        else {
+            final ApiResponse apiResponse = apiResponses.remove();
+            apiResponse.accept(apiMessage);
         }
     }
 
@@ -96,12 +116,31 @@ public final class DtnApiHandler extends AbstractVerticle {
         }
     }
 
-    private void send(String request) {
-        LOGGER.debug(request);
-        dtnSocket.write(request + "\n");
+    private void send(String message) {
+        final ApiResponse expectedApiResponse = new ApiResponse(StatusCode.OK);
+        expectedApiResponse.successHandler(apiSuccessHandler());
+        expectedApiResponse.failHandler(apiErrorHandler());
+        send(message, expectedApiResponse);
+    }
+
+    private void send(String message, ApiResponse expectedResponse) {
+        LOGGER.debug(message);
+        apiResponses.add(expectedResponse);
+        dtnSocket.write(message + "\n");
     }
 
     private void send(Buffer buffer) {
         dtnSocket.write(buffer);
+    }
+
+    private Consumer<ApiMessage> apiSuccessHandler() {
+        return apiMessage -> {
+        };
+    }
+
+    private Consumer<ApiMessage> apiErrorHandler() {
+        return apiMessage -> {
+            LOGGER.warn("message received does not match expected one: {}", apiMessage.getMessage());
+        };
     }
 }
