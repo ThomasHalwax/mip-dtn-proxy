@@ -31,6 +31,7 @@ public final class DataReceiverProxy extends AbstractVerticle {
 
         NetClientOptions clientOptions = new NetClientOptions();
         clientOptions.setTcpKeepAlive(true);
+
         NetClient client = vertx.createNetClient(clientOptions);
         client.connect(connectionInfo.getInteger("port"), connectionInfo.getString("ipAddress"), attempt -> {
             if (attempt.succeeded()) {
@@ -61,13 +62,22 @@ public final class DataReceiverProxy extends AbstractVerticle {
     }
 
     private Handler<Buffer> socketToRemoteHandler() {
-        return pdu -> {
-            LOGGER.debug("will send {} to remote", pdu.toString());
+        TmanPduParser parser = new TmanPduParser();
+
+        parser.handler(tManPdu -> {
+            LOGGER.debug("will send {} to remote", tManPdu.toString());
             DeliveryOptions sendPduOptions = new DeliveryOptions();
             sendPduOptions.addHeader("source", localEndpointAddress);
             sendPduOptions.addHeader("destination", remoteEndpointAddress);
-            vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu, sendPduOptions);
-        };
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, tManPdu.getPdu(), sendPduOptions);
+        });
+
+        parser.errorHandler(error -> {
+            LOGGER.warn("received invalid data", error);
+            socket.end();
+        });
+
+        return parser::addData;
     }
 
     private Handler<Void> socketClosedHandler() {
