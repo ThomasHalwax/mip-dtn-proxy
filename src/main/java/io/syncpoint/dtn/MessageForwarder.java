@@ -8,9 +8,20 @@ import org.slf4j.LoggerFactory;
 
 public final class MessageForwarder extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageForwarder.class);
+    private String nodename = "";
 
     @Override
     public void start() {
+        vertx.eventBus().send(Addresses.QUERY_NODENAME, "", response -> {
+            if (response.succeeded()) {
+                LOGGER.debug("got response to nodename query: {}", response.result().body());
+                nodename = response.result().body().toString();
+
+            } else {
+                LOGGER.warn("no response for nodename query: {}", response.cause().getMessage());
+            }
+        });
+
         // we received a bundle from a remote source
         // messages are published by the DtnApiHandler
         vertx.eventBus().localConsumer(Addresses.EVENT_BUNDLE_RECEIVED, transport -> {
@@ -114,6 +125,7 @@ public final class MessageForwarder extends AbstractVerticle {
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
+            //TODO: forward message
             LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
     }

@@ -29,4 +29,6 @@ public final class Addresses {
     public static final String COMMAND_SEND_CLOSE_SOCKET = "command://socket/close";
     public static final String EVENT_SOCKET_CLOSED = "event://socket/closed";
 
+    public static final String QUERY_NODENAME = "query://nodename";
+
 }

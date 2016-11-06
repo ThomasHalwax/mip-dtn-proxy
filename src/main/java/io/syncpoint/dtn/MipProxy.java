@@ -3,6 +3,7 @@ package io.syncpoint.dtn;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,7 +14,7 @@ import java.util.Map;
 public final class MipProxy extends AbstractVerticle{
     static final Logger LOGGER = LoggerFactory.getLogger(MipProxy.class);
 
-    final Map<Class, DeploymentOptions> verticles = new HashMap<>();
+
 
     @Override
     public void start(Future<Void> future) {
@@ -24,14 +25,32 @@ public final class MipProxy extends AbstractVerticle{
             return;
         }
         LOGGER.debug("config: {}", config().encode());
-
-        verticles.put(DciListener.class, new DeploymentOptions().setConfig(config().getJsonObject("dci")));
-        verticles.put(DataProviderListener.class, new DeploymentOptions().setConfig(config().getJsonObject("dem")));
-        verticles.put(MessageForwarder.class, new DeploymentOptions());
-        verticles.put(DtnApiHandler.class, new DeploymentOptions().setConfig(config().getJsonObject("api")));
-        verticles.put(DataReceiverSupervisor.class, new DeploymentOptions());
-
+        vertx.deployVerticle(
+                DtnApiHandler.class.getName(),
+                new DeploymentOptions().setConfig(config().getJsonObject("api")),
+                primary -> {
+                    if (primary.failed()) {
+                        LOGGER.error("deployment of primary verticle {} failed: {}",
+                                DtnApiHandler.class.getName(),
+                                primary.cause().getMessage()
+                                );
+                        vertx.close();
+                        return;
+                    }
+                    deployDependendVerticles(config());
+                }
+                );
         // TODO: build some kind of supervisor who monitors the created verticles and restarts them on failure
+
+    }
+
+    private void deployDependendVerticles(JsonObject config) {
+        final Map<Class, DeploymentOptions> verticles = new HashMap<>();
+
+        verticles.put(DciListener.class, new DeploymentOptions().setConfig(config.getJsonObject("dci")));
+        verticles.put(DataProviderListener.class, new DeploymentOptions().setConfig(config.getJsonObject("dem")));
+        verticles.put(MessageForwarder.class, new DeploymentOptions());
+        verticles.put(DataReceiverSupervisor.class, new DeploymentOptions());
 
         for (Class verticle : verticles.keySet()) {
             LOGGER.debug("deploying verticle " + verticle.getName());

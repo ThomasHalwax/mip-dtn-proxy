@@ -62,6 +62,7 @@ public final class DtnApiHandler extends AbstractVerticle {
             }
         });
 
+        // vert.x eventbus listeners
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_BUNDLE, bundleMessage -> {
             JsonObject bundle = (JsonObject) bundleMessage.body();
             send(BundleSerializer.serialize(bundle));
@@ -79,8 +80,14 @@ public final class DtnApiHandler extends AbstractVerticle {
             send("registration del " + localDPProxyAddress);
             LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
         });
+
+        vertx.eventBus().localConsumer(Addresses.QUERY_NODENAME, message -> {
+            LOGGER.debug("sending nodename back to {}", message.replyAddress());
+            message.reply(this.nodeName);
+        });
     }
 
+    // handle response to the command "nodename"
     private ApiResponse expectedNodenameResponse() {
         ApiResponse response = new ApiResponse(StatusCode.OK);
         response.successHandler(m -> {
@@ -90,6 +97,7 @@ public final class DtnApiHandler extends AbstractVerticle {
         return response;
     }
 
+    // handle STATUS response from API
     private void handleApiMessage(String message) {
         LOGGER.debug(message);
 
@@ -105,6 +113,7 @@ public final class DtnApiHandler extends AbstractVerticle {
         }
     }
 
+    // handling non STATUS response from the API
     private void handleData(String message) {
         LOGGER.debug(message);
         if (INITIAL_API_MESSAGE.equals(message)) return;
@@ -116,6 +125,7 @@ public final class DtnApiHandler extends AbstractVerticle {
         }
     }
 
+    // some variants to send a command/query to the API
     private void send(String message) {
         final ApiResponse expectedApiResponse = new ApiResponse(StatusCode.OK);
         expectedApiResponse.successHandler(apiSuccessHandler());
@@ -133,6 +143,7 @@ public final class DtnApiHandler extends AbstractVerticle {
         dtnSocket.write(buffer);
     }
 
+    // default consumers used for checking the success/failure of an API command
     private Consumer<ApiMessage> apiSuccessHandler() {
         return apiMessage -> {
         };
