@@ -34,6 +34,9 @@ public final class Addresses {
     public static final String COMMAND_ADD_REGISTRATION = "command://registration/add";
     public static final String COMMAND_DELETE_REGISTRATION = "command://registration/del";
 
+    public static final String COMMAND_ADD_ENDPOINT = "command://endpoint/add";
+    public static final String COMMAND_DELETE_ENDPOINT = "command://endpoint/del";
+
     public static final String QUERY_NODENAME = "query://nodename";
 
 }

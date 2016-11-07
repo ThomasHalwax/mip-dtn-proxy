@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 public final class MessageForwarder extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageForwarder.class);
+    private final Resolver resolver = new Resolver();
     private String nodename = "";
 
     @Override
@@ -31,23 +32,34 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
+            String remoteHost = Helper.getDtnHostFromUri(bundle.getSource());
+            String channel = Helper.getChannelFromUri(bundle.getSource(), Addresses.APP_PREFIX);
+            resolver.registerHostForChannel(channel, remoteHost);
+            LOGGER.debug("registered host {} for channel {}", remoteHost, channel);
+
             String destinationAddress;
-            if (Addresses.DTN_DCI_ANNOUNCE_ADDRESS.equals(bundle.getDestination())) {
-                destinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
-            }
-            else if (Addresses.DTN_DCI_REPLY_ADDRESS.equals(bundle.getDestination())) {
-                destinationAddress = Addresses.COMMAND_REPLY_DCI;
-            }
-            else {
-                destinationAddress = bundle.getDestination().replace(
+            switch (bundle.getDestination()) {
+                case Addresses.DTN_DCI_ANNOUNCE_ADDRESS: {
+                    destinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
+                    break;
+                }
+                case Addresses.DTN_DCI_REPLY_ADDRESS: {
+                    destinationAddress = Addresses.COMMAND_REPLY_DCI;
+                    break;
+                }
+                default: {
+                    destinationAddress = bundle.getDestination().replace(
                         Addresses.DTN_PREFIX + Addresses.APP_PREFIX,"");
+                    break;
+                }
             }
 
             LOGGER.debug("forwarding base64 encoded message to local address {}", destinationAddress);
+            final String finalDestinationAddress = destinationAddress;
             bundle.blockIterator().forEachRemaining(b -> {
                 BlockAdapter block = new BlockAdapter((JsonObject)b);
                 // TODO: only send payload block
-                vertx.eventBus().publish(destinationAddress, block.getEncodedContent());
+                vertx.eventBus().publish(finalDestinationAddress, block.getEncodedContent());
             });
         });
 
@@ -76,15 +88,21 @@ public final class MessageForwarder extends AbstractVerticle {
             String tOpenRequest = pdu.body().toString();
 
             BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.APP_PREFIX + pdu.headers().get("destination"));
+            String bundleHost = resolver.getHostForChannel(pdu.headers().get("destination"));
+            if (bundleHost == null) {
+                bundleHost = Addresses.DTN_PREFIX;
+            }
+
+            bundle.setDestination(bundleHost + "/" + Addresses.APP_PREFIX + pdu.headers().get("destination"));
             bundle.setSource(nodename + Addresses.APP_PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
 
             flags.set(BundleFlags.DELIVERY_REPORT, true);
-            // TODO: verify the correct semantics of the flag
-            //flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
-            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
 
+            if (resolver.hasHostForChannel(pdu.headers().get("destination"))) {
+                flags.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
+            }
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
             bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
 
             BlockAdapter payload = new BlockAdapter();
@@ -116,16 +134,19 @@ public final class MessageForwarder extends AbstractVerticle {
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
+            localDPProxyAddress = Addresses.DTN_PREFIX + nodename + Addresses.APP_PREFIX + localDPProxyAddress;
+            //localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
             vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, localDPProxyAddress);
             LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
+            localDPProxyAddress = Addresses.DTN_PREFIX + nodename + Addresses.APP_PREFIX + localDPProxyAddress;
+            //localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
             vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, localDPProxyAddress);
             LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
         });
-
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
             //TODO: forward message

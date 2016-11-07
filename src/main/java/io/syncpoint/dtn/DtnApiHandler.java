@@ -78,6 +78,14 @@ public final class DtnApiHandler extends AbstractVerticle {
             send("registration del " + endpointId.body());
         });
 
+        vertx.eventBus().localConsumer(Addresses.COMMAND_ADD_ENDPOINT, endpointId -> {
+            send("endpoint add " + endpointId.body());
+        });
+
+        vertx.eventBus().localConsumer(Addresses.COMMAND_DELETE_ENDPOINT, endpointId -> {
+            send("endpoint del " + endpointId.body());
+        });
+
         vertx.eventBus().localConsumer(Addresses.QUERY_NODENAME, message -> {
             LOGGER.debug("sending nodename back to {}", message.replyAddress());
             message.reply(this.nodeName);

@@ -1,5 +1,8 @@
 package io.syncpoint.dtn;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 public final class Helper {
     private Helper() {
         // utility class
@@ -35,5 +38,27 @@ public final class Helper {
     public static String getSourceNodeId(String tOpenRequest) {
         // 00000022T1|123456789|987654321
         return tOpenRequest.substring(11, 20);
+    }
+
+    public static String getDtnHostFromUri(String address) {
+        try {
+            URI url = new URI(address);
+            return url.getScheme() + "://" + url.getHost();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String getChannelFromUri(String address, String prefix) {
+        try {
+            URI url = new URI(address);
+            String channel = url.getPath().replace(prefix, "");
+            if (channel.startsWith("/")) {
+                channel = channel.substring(1, channel.length());
+            }
+            return channel;
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

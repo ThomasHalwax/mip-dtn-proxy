@@ -1,5 +1,6 @@
 package io.syncpoint.dtn.bundle;
 
+import io.syncpoint.dtn.Helper;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
@@ -15,9 +16,12 @@ public final class BundleSerializer {
 
     public static Buffer serialize(JsonObject rawBundle) {
         BundleAdapter bundle = new BundleAdapter(rawBundle);
+        final String channelFromUri = Helper.getChannelFromUri(bundle.getPrimaryBlockField(BundleFields.SOURCE), "");
+
 
         Buffer buffer = Buffer.buffer();
 
+        buffer.appendString("set endpoint " + channelFromUri + "\n");
         buffer.appendString("bundle put plain\n");
         buffer.appendString(BundleFields.SOURCE).appendString(": ")
                 .appendString(bundle.getPrimaryBlockField(BundleFields.SOURCE)).appendString("\n");

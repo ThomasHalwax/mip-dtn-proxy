@@ -72,11 +72,11 @@ public final class DataProviderProxy extends AbstractVerticle {
 
             // remote data will be sent to this address
             // read: output from destination will be piped to input at source
-            localEndpointAddress = destinationNodeId + "|" + sourceNodeId;
+            localEndpointAddress = destinationNodeId + "/" + sourceNodeId;
 
             // this is the source address fo all subsequent TMAN PDUs
             // read: output from source will be piped to destination
-            remoteEndpointAddress = sourceNodeId + "|" + destinationNodeId;
+            remoteEndpointAddress = sourceNodeId + "/" + destinationNodeId;
             vertx.eventBus().localConsumer(localEndpointAddress, remoteToSocketHandler());
             vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, localEndpointAddress);
 

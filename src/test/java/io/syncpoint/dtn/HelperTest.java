@@ -18,6 +18,9 @@ public class HelperTest {
             "</DCI>";
 
     static final String T_OPEN_REQUEST = "00000022T1|123456789|987654321";
+    static final String SUPERVISOR_ADDRESS = "dtn://some.host/dem/111000111";
+    static final String CHANNEL_ADDRESS = "dtn://some.host/dem/111000111/888999888";
+
 
     @Test
     public void findElementValue$NodeID() {
@@ -48,4 +51,21 @@ public class HelperTest {
         final String destinationNodeId = Helper.getDestinationNodeId(T_OPEN_REQUEST);
         Assert.assertEquals("987654321", destinationNodeId);
     }
+
+    @Test
+    public void address$host() {
+        Assert.assertEquals("dtn://some.host", Helper.getDtnHostFromUri(SUPERVISOR_ADDRESS));
+    }
+
+    @Test
+    public void address$path() {
+        Assert.assertEquals("111000111", Helper.getChannelFromUri(SUPERVISOR_ADDRESS, Addresses.APP_PREFIX));
+    }
+
+    @Test
+    public void address$channel() {
+        Assert.assertEquals("111000111/888999888", Helper.getChannelFromUri(CHANNEL_ADDRESS, Addresses.APP_PREFIX));
+    }
+
+
 }
