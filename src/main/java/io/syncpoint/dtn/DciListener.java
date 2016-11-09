@@ -48,12 +48,12 @@ public final class DciListener extends AbstractVerticle {
                 config().getString("host", DEFAULT_DCI_HOST), instance -> {
            if (instance.succeeded()) {
                LOGGER.debug("dci listener listens on {}", listeningSocket.localAddress().toString());
-               startup.complete();
+
 
                listeningSocket.handler(datagramPacket -> {
                    if (myIpAddresses.keySet().contains(datagramPacket.sender().host())) {
                        LOGGER.debug("ignoring broadcast from myself");
-                       //return;
+                       return;
                    }
                    LOGGER.info("received dci on local network");
 
@@ -75,15 +75,14 @@ public final class DciListener extends AbstractVerticle {
                        LOGGER.debug("INVALID DCI? {}", xmlDci);
                    }
                });
+
+               startup.complete();
            }
            else {
                startup.fail(instance.cause());
                LOGGER.error("failed to listen", instance.cause());
            }
         });
-
-        DatagramSocketOptions sendingSocketOptions = new DatagramSocketOptions();
-        sendingSocketOptions.setBroadcast(true);
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_ANNOUNCE_DCI, this::handleRemoteDciMessage);
         vertx.eventBus().localConsumer(Addresses.COMMAND_REPLY_DCI, this::handleRemoteDciMessage);

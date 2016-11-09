@@ -2,26 +2,35 @@ package io.syncpoint.dtn;
 
 import io.syncpoint.dtn.bundle.*;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 public final class MessageForwarder extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageForwarder.class);
     private final Resolver resolver = new Resolver();
-    private String nodename = "";
+    private URI node;
 
     @Override
-    public void start() {
+    public void start(Future<Void> startup) {
         vertx.eventBus().send(Addresses.QUERY_NODENAME, "", response -> {
             if (response.succeeded()) {
                 LOGGER.debug("got response to nodename query: {}", response.result().body());
-                nodename = response.result().body().toString();
-                if (! nodename.endsWith("/")) {
-                    nodename = nodename + "/";
+                try {
+                    node = new URI((String)response.result().body());
+                } catch (URISyntaxException e) {
+                    LOGGER.warn("invalid nodename", e.getMessage());
+                    startup.fail(e);
+                    return;
                 }
             } else {
                 LOGGER.warn("no response for nodename query: {}", response.cause().getMessage());
+                startup.fail(response.cause());
+                return;
             }
         });
 
@@ -32,9 +41,21 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
+            URI sendingEndpoint;
+            URI localEndpoint;
+            try {
+                sendingEndpoint = new URI(bundle.getSource());
+                localEndpoint = new URI(bundle.getDestination());
+                if (sendingEndpoint.getHost().equals(node.getHost())) {
+                    LOGGER.debug("ignoring packets sent by self");
+                    return;
+                }
+            } catch (URISyntaxException e) {
+                LOGGER.warn("invalid URI, bundle will not be processed", e.getMessage());
+                return;
+            }
+
             register(bundle);
-
-
 
             String destinationAddress;
             switch (bundle.getDestination()) {
@@ -47,8 +68,11 @@ public final class MessageForwarder extends AbstractVerticle {
                     break;
                 }
                 default: {
-                    destinationAddress = bundle.getDestination().replace(
-                        Addresses.DTN_PREFIX + Addresses.APP_PREFIX,"");
+                    // possible uris:
+                    // dtn://dem/nodeID (for T_OPEN_REQUESTS)
+                    // dtn://myhost.name/sender/localReceiver
+                    destinationAddress = localEndpoint.getPath();
+
                     break;
                 }
             }
@@ -89,11 +113,11 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter();
             String bundleHost = resolver.getHostForChannel(pdu.headers().get("destination"));
             if (bundleHost == null) {
-                bundleHost = Addresses.DTN_PREFIX;
+                bundleHost = Addresses.DTN_PREFIX.substring(0, Addresses.DTN_PREFIX.length() - 2);
             }
 
             bundle.setDestination(bundleHost + "/" + Addresses.APP_PREFIX + pdu.headers().get("destination"));
-            bundle.setSource(nodename + Addresses.APP_PREFIX + pdu.headers().get("source"));
+            bundle.setSource(node + "/" + Addresses.APP_PREFIX + pdu.headers().get("source"));
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
 
             flags.set(BundleFlags.DELIVERY_REPORT, true);
@@ -133,7 +157,7 @@ public final class MessageForwarder extends AbstractVerticle {
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
-            localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
+            localDPProxyAddress = node + "/" + Addresses.APP_PREFIX + localDPProxyAddress;
             vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, localDPProxyAddress);
             LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
         });
@@ -162,14 +186,14 @@ public final class MessageForwarder extends AbstractVerticle {
     private void sendDci(String destination, String xmlDci) {
         BundleAdapter bundle = new BundleAdapter();
         bundle.setDestination(destination);
-        bundle.setSource(nodename + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
+        bundle.setSource(node + "/" + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
 
         BundleFlagsAdapter flags = new BundleFlagsAdapter();
         flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
         flags.set(BundleFlags.DELETION_REPORT, true);
         bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
 
-        bundle.setPrimaryBlockField(BundleFields.REPORT_TO, nodename + Addresses.DTN_REPORT_TO_ADDRESS);
+        bundle.setPrimaryBlockField(BundleFields.REPORT_TO, node + "/" + Addresses.DTN_REPORT_TO_ADDRESS);
 
         BlockAdapter payload = new BlockAdapter();
         payload.setPlainContent(xmlDci);
