@@ -72,16 +72,17 @@ public final class DataProviderProxy extends AbstractVerticle {
 
             // remote data will be sent to this address
             // read: output from destination will be piped to input at source
-            localEndpointAddress = destinationNodeId + "/" + sourceNodeId;
+            remoteEndpointAddress = destinationNodeId + "/" + sourceNodeId;
 
             // this is the source address fo all subsequent TMAN PDUs
             // read: output from source will be piped to destination
-            remoteEndpointAddress = sourceNodeId + "/" + destinationNodeId;
-            vertx.eventBus().localConsumer(localEndpointAddress, remoteToSocketHandler());
-            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, localEndpointAddress);
+            localEndpointAddress = sourceNodeId + "/" + destinationNodeId;
+            vertx.eventBus().localConsumer(remoteEndpointAddress, remoteToSocketHandler());
+            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, remoteEndpointAddress);
 
             DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
-            tOpenRequestOptions.addHeader("source", sourceNodeId);
+            tOpenRequestOptions.addHeader("source", localEndpointAddress);
+            // destination mus be the "common" address of the remote DEM
             tOpenRequestOptions.addHeader("destination", destinationNodeId);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU,
                     tManPdu.getPdu().toString(),
@@ -99,9 +100,9 @@ public final class DataProviderProxy extends AbstractVerticle {
 
     private Consumer<TManPdu> socketToRemoteHandler() {
         return pdu -> {
-            LOGGER.debug("sending {} from {} to {}", pdu.getPduType(), sourceNodeId, destinationNodeId);
+            LOGGER.debug("sending {} from {} to {}", pdu.getPduType(), localEndpointAddress, remoteEndpointAddress);
             DeliveryOptions pduOptions = new DeliveryOptions();
-            pduOptions.addHeader("source", sourceNodeId);
+            pduOptions.addHeader("source", localEndpointAddress);
             pduOptions.addHeader("destination", remoteEndpointAddress);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu.getPdu(), pduOptions);
         };

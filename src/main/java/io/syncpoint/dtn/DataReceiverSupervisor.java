@@ -47,6 +47,7 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
         final String replicationNodeIPAddress = Helper.getElementValue("ReplicationNodeIPAddress", xmlDci);
         final String replicationNodePort = Helper.getElementValue("ReplicationNodePort", xmlDci);
 
+        // TODO: would be better to use the resolver and the ip://address:port URI syntax
         JsonObject connectionInfo = new JsonObject();
         connectionInfo.put("ipAddress", replicationNodeIPAddress);
         connectionInfo.put("port", Integer.parseInt(replicationNodePort));

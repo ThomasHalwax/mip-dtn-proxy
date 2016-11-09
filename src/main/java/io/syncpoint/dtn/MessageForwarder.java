@@ -32,10 +32,9 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
-            String remoteHost = Helper.getDtnHostFromUri(bundle.getSource());
-            String channel = Helper.getChannelFromUri(bundle.getSource(), Addresses.APP_PREFIX);
-            resolver.registerHostForChannel(channel, remoteHost);
-            LOGGER.debug("registered host {} for channel {}", remoteHost, channel);
+            register(bundle);
+
+
 
             String destinationAddress;
             switch (bundle.getDestination()) {
@@ -134,16 +133,14 @@ public final class MessageForwarder extends AbstractVerticle {
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
-            localDPProxyAddress = Addresses.DTN_PREFIX + nodename + Addresses.APP_PREFIX + localDPProxyAddress;
-            //localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
+            localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
             vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, localDPProxyAddress);
             LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
             String localDPProxyAddress = localNodeAddress.body().toString();
-            localDPProxyAddress = Addresses.DTN_PREFIX + nodename + Addresses.APP_PREFIX + localDPProxyAddress;
-            //localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
+            localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
             vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, localDPProxyAddress);
             LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
         });
@@ -152,6 +149,14 @@ public final class MessageForwarder extends AbstractVerticle {
             //TODO: forward message
             LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
+    }
+
+    private void register(BundleAdapter bundle) {
+        String channel = Helper.getChannelFromUri(bundle.getSource(), Addresses.APP_PREFIX);
+        if (resolver.hasHostForChannel(channel)) return;
+        String remoteHost = Helper.getDtnHostFromUri(bundle.getSource());
+        resolver.registerHostForChannel(channel, remoteHost);
+        LOGGER.debug("registered host {} for channel {}", remoteHost, channel);
     }
 
     private void sendDci(String destination, String xmlDci) {
