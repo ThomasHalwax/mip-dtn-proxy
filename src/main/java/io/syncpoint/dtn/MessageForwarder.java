@@ -72,6 +72,9 @@ public final class MessageForwarder extends AbstractVerticle {
                     // dtn://dem/nodeID (for T_OPEN_REQUESTS)
                     // dtn://myhost.name/sender/localReceiver
                     destinationAddress = localEndpoint.getPath();
+                    if (destinationAddress.startsWith("/")) {
+                        destinationAddress = destinationAddress.substring(1);
+                    }
 
                     break;
                 }

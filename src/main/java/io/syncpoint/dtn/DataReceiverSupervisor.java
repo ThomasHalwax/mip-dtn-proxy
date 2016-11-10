@@ -36,9 +36,9 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
             addToKnownDemInstances(xmlDci);
 
             String tOpenRequestAddress = Helper.getElementValue("NodeID", xmlDci);
-            vertx.eventBus().localConsumer(tOpenRequestAddress, tOpenRequestHandler());
+            vertx.eventBus().localConsumer(Addresses.APP_PREFIX + tOpenRequestAddress, tOpenRequestHandler());
             // TODO
-            //vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + tOpenRequestAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, tOpenRequestAddress);
         };
     }
 
