@@ -26,8 +26,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
     public void start(Future<Void> startup) {
         JsonObject connectionInfo = config().getJsonObject("connectionInfo");
         String tOpenRequest = config().getString("tOpenRequest");
-        localEndpointAddress = Helper.getSourceNodeId(tOpenRequest) + "|" + Helper.getDestinationNodeId(tOpenRequest);
-        remoteEndpointAddress = Helper.getDestinationNodeId(tOpenRequest) + "|" + Helper.getSourceNodeId(tOpenRequest);
+        remoteEndpointAddress = Helper.getSourceNodeId(tOpenRequest) + "/" + Helper.getDestinationNodeId(tOpenRequest);
+        localEndpointAddress = Helper.getDestinationNodeId(tOpenRequest) + "/" + Helper.getSourceNodeId(tOpenRequest);
 
         NetClientOptions clientOptions = new NetClientOptions();
         clientOptions.setTcpKeepAlive(true);
@@ -37,9 +37,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
             if (attempt.succeeded()) {
                 socket = attempt.result();
                 LOGGER.debug("connected to DEM instance");
-                vertx.eventBus().localConsumer(localEndpointAddress, remoteToSocketHandler());
-                // TODO
-                //vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+                vertx.eventBus().localConsumer(remoteEndpointAddress, remoteToSocketHandler());
+                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, remoteEndpointAddress);
 
                 socket.handler(socketToRemoteHandler());
                 socket.closeHandler(socketClosedHandler());
@@ -84,8 +83,7 @@ public final class DataReceiverProxy extends AbstractVerticle {
     private Handler<Void> socketClosedHandler() {
         return undef -> {
             LOGGER.warn("socket closed");
-            // TODO
-            //vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, Addresses.PREFIX + localEndpointAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, remoteEndpointAddress);
             vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, remoteEndpointAddress);
             vertx.undeploy(deploymentID(), result -> {
                 if (result.failed()) {
