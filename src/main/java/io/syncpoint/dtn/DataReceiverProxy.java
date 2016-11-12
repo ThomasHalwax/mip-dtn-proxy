@@ -18,17 +18,21 @@ import java.util.Base64;
 public final class DataReceiverProxy extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataReceiverProxy.class);
     private NetSocket socket;
-    private String localEndpointAddress;
-    private String remoteEndpointAddress;
+    //private String localEndpointAddress;
+    //private String remoteEndpointAddress;
     private Base64.Decoder decoder = Base64.getDecoder();
+    private String peerId;
 
     @Override
     public void start(Future<Void> startup) {
         JsonObject connectionInfo = config().getJsonObject("connectionInfo");
         String tOpenRequest = config().getString("tOpenRequest");
+        peerId = config().getString("peerId");
+
+        /*
         remoteEndpointAddress = Helper.getSourceNodeId(tOpenRequest) + "/" + Helper.getDestinationNodeId(tOpenRequest);
         localEndpointAddress = Helper.getDestinationNodeId(tOpenRequest) + "/" + Helper.getSourceNodeId(tOpenRequest);
-
+        */
         NetClientOptions clientOptions = new NetClientOptions();
         clientOptions.setTcpKeepAlive(true);
 
@@ -37,8 +41,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
             if (attempt.succeeded()) {
                 socket = attempt.result();
                 LOGGER.debug("connected to DEM instance");
-                vertx.eventBus().localConsumer(remoteEndpointAddress, remoteToSocketHandler());
-                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, remoteEndpointAddress);
+                vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
+                vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, peerId);
 
                 socket.handler(socketToRemoteHandler());
                 socket.closeHandler(socketClosedHandler());
@@ -47,7 +51,7 @@ public final class DataReceiverProxy extends AbstractVerticle {
             }
             else {
                 LOGGER.warn("failed to connect: {}", attempt.cause().getMessage());
-                vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, remoteEndpointAddress);
+                vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, peerId);
                 startup.fail(attempt.cause());
             }
         });
@@ -67,8 +71,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
         parser.handler(tManPdu -> {
             LOGGER.debug("will send {} to remote", tManPdu.toString());
             DeliveryOptions sendPduOptions = new DeliveryOptions();
-            sendPduOptions.addHeader("source", localEndpointAddress);
-            sendPduOptions.addHeader("destination", remoteEndpointAddress);
+            sendPduOptions.addHeader("source", peerId);
+            sendPduOptions.addHeader("destination", peerId);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, tManPdu.getPdu(), sendPduOptions);
         });
 
@@ -83,8 +87,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
     private Handler<Void> socketClosedHandler() {
         return undef -> {
             LOGGER.warn("socket closed");
-            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, remoteEndpointAddress);
-            vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, remoteEndpointAddress);
+            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
+            vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, peerId);
             vertx.undeploy(deploymentID(), result -> {
                 if (result.failed()) {
                     LOGGER.warn("failed to un-deploy: {}", result.cause().getMessage());

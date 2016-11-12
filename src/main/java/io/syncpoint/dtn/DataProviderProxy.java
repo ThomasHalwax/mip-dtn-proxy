@@ -21,8 +21,7 @@ public final class DataProviderProxy extends AbstractVerticle {
 
     private String sourceNodeId;
     private String destinationNodeId;
-    private String localEndpointAddress;
-    private String remoteEndpointAddress;
+    private String peerId;
 
     public DataProviderProxy(NetSocket clientSocket) {
         this.clientSocket = clientSocket;
@@ -38,11 +37,13 @@ public final class DataProviderProxy extends AbstractVerticle {
         parser.handler(preT1Handler());
 
         clientSocket.handler(parser::addData);
+
         clientSocket.closeHandler(socketClosed -> {
             LOGGER.debug("socket was closed, undeploying handler verticle");
-            if (hasValidAddresses()) {
-                vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, localEndpointAddress);
-                vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, remoteEndpointAddress);
+            // only perform unregister is there was an T_OPEN_REQ before
+            if (peerId != null) {
+                vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
+                vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, peerId);
             }
             vertx.undeploy(deploymentID());
         });
@@ -69,26 +70,20 @@ public final class DataProviderProxy extends AbstractVerticle {
             destinationNodeId = Helper.getDestinationNodeId(tManPdu.getPdu().toString());
 
             LOGGER.debug("received T_OPEN_REQ from {} to {}", sourceNodeId, destinationNodeId);
+            // peerId is a unique URI for identifying the communication between two peers
+            peerId = deploymentID() + "/" + sourceNodeId + "/" + destinationNodeId;
 
-            // remote data will be sent to this address
-            // read: output from destination will be piped to input at source
-            remoteEndpointAddress = destinationNodeId + "/" + sourceNodeId;
-
-            // this is the source address fo all subsequent TMAN PDUs
-            // read: output from source will be piped to destination
-            localEndpointAddress = sourceNodeId + "/" + destinationNodeId;
-            vertx.eventBus().localConsumer(remoteEndpointAddress, remoteToSocketHandler());
-            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, remoteEndpointAddress);
+            vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
+            vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, peerId);
 
             DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
-            tOpenRequestOptions.addHeader("source", localEndpointAddress);
-            // destination mus be the "common" address of the remote DEM
+            tOpenRequestOptions.addHeader("source", peerId);
+            // destination must be the "common" address of the remote DEM
             tOpenRequestOptions.addHeader("destination", destinationNodeId);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU,
                     tManPdu.getPdu().toString(),
                     tOpenRequestOptions
             );
-
             parser.handler(socketToRemoteHandler());
         };
     }
@@ -100,10 +95,10 @@ public final class DataProviderProxy extends AbstractVerticle {
 
     private Consumer<TManPdu> socketToRemoteHandler() {
         return pdu -> {
-            LOGGER.debug("sending {} from {} to {}", pdu.getPduType(), localEndpointAddress, remoteEndpointAddress);
+            LOGGER.debug("sending {} to peer {}", pdu.getPduType(), peerId);
             DeliveryOptions pduOptions = new DeliveryOptions();
-            pduOptions.addHeader("source", localEndpointAddress);
-            pduOptions.addHeader("destination", remoteEndpointAddress);
+            pduOptions.addHeader("source", peerId);
+            pduOptions.addHeader("destination", peerId);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu.getPdu(), pduOptions);
         };
     }
@@ -119,9 +114,5 @@ public final class DataProviderProxy extends AbstractVerticle {
             }
             clientSocket.write(Buffer.buffer(message));
         };
-    }
-
-    private boolean hasValidAddresses() {
-        return ((localEndpointAddress != null) && (remoteEndpointAddress != null));
     }
 }

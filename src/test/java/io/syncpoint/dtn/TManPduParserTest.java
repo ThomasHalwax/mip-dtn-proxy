@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class TManPduParserTest {
+    // 00000022T1|123000123|888222888
     private static final String T_OPEN_REQUEST = "00000022T1|123456789|987654321";
     private static final String T_DATA_REQUEST = "00000068T2|D1|{10000000000000000123|Friendly units moving|FRDNEU|Division|2}";
 

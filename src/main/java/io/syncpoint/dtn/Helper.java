@@ -49,16 +49,18 @@ public final class Helper {
         }
     }
 
-    public static String getChannelFromUri(String address, String prefix) {
+    public static String getChannelFromUri(String address) {
         try {
             URI url = new URI(address);
-            String channel = url.getPath().replace(prefix, "");
-            if (channel.startsWith("/")) {
-                channel = channel.substring(1, channel.length());
-            }
-            return channel;
+            //String channel = url.getPath().replace(prefix, "");
+            //if (channel.startsWith("/")) {
+            //    channel = channel.substring(1, channel.length());
+            //}
+            return url.getPath();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
     }
+
+
 }

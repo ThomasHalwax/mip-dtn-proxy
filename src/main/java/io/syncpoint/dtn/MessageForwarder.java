@@ -3,6 +3,7 @@ package io.syncpoint.dtn;
 import io.syncpoint.dtn.bundle.*;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,12 +42,12 @@ public final class MessageForwarder extends AbstractVerticle {
             BundleAdapter bundle = new BundleAdapter((JsonObject)transport.body());
             LOGGER.debug("received bundle from {} sent to {}", bundle.getSource(), bundle.getDestination());
 
-            URI sendingEndpoint;
-            URI localEndpoint;
+            URI sourceEndpoint;
+            URI destinationEndpoint;
             try {
-                sendingEndpoint = new URI(bundle.getSource());
-                localEndpoint = new URI(bundle.getDestination());
-                if (sendingEndpoint.getHost().equals(node.getHost())) {
+                sourceEndpoint = new URI(bundle.getSource());
+                destinationEndpoint = new URI(bundle.getDestination());
+                if (sourceEndpoint.getHost().equals(node.getHost())) {
                     LOGGER.debug("ignoring packets sent by self");
                     return;
                 }
@@ -57,31 +58,35 @@ public final class MessageForwarder extends AbstractVerticle {
 
             register(bundle);
 
-            String destinationAddress;
+            String eventBusDestinationAddress;
             switch (bundle.getDestination()) {
                 case Addresses.DTN_DCI_ANNOUNCE_ADDRESS: {
-                    destinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
+                    eventBusDestinationAddress = Addresses.COMMAND_ANNOUNCE_DCI;
                     break;
                 }
                 case Addresses.DTN_DCI_REPLY_ADDRESS: {
-                    destinationAddress = Addresses.COMMAND_REPLY_DCI;
+                    eventBusDestinationAddress = Addresses.COMMAND_REPLY_DCI;
                     break;
                 }
                 default: {
                     // possible uris:
                     // dtn://dem/nodeID (for T_OPEN_REQUESTS)
                     // dtn://myhost.name/sender/localReceiver
-                    destinationAddress = localEndpoint.getPath();
-                    if (destinationAddress.startsWith("/")) {
-                        destinationAddress = destinationAddress.substring(1);
+                    eventBusDestinationAddress = destinationEndpoint.getPath();
+                    if (eventBusDestinationAddress.startsWith("/")) {
+                        eventBusDestinationAddress = eventBusDestinationAddress.substring(1);
                     }
-
                     break;
                 }
             }
 
-            LOGGER.debug("forwarding base64 encoded message to local address {}", destinationAddress);
-            final String finalDestinationAddress = destinationAddress;
+            LOGGER.debug("forwarding base64 encoded message to local address {}", eventBusDestinationAddress);
+            DeliveryOptions bundleReceivedOptions = new DeliveryOptions();
+            // will start with a slash "/...."
+            bundleReceivedOptions.addHeader("source", sourceEndpoint.getPath());
+            bundleReceivedOptions.addHeader("destination", destinationEndpoint.getPath());
+
+            final String finalDestinationAddress = eventBusDestinationAddress;
             bundle.blockIterator().forEachRemaining(b -> {
                 BlockAdapter block = new BlockAdapter((JsonObject)b);
                 // TODO: only send payload block
@@ -119,8 +124,20 @@ public final class MessageForwarder extends AbstractVerticle {
                 bundleHost = Addresses.DTN_PREFIX.substring(0, Addresses.DTN_PREFIX.length() - 2);
             }
 
-            bundle.setDestination(bundleHost + "/" + Addresses.APP_PREFIX + pdu.headers().get("destination"));
-            bundle.setSource(node + "/" + Addresses.APP_PREFIX + pdu.headers().get("source"));
+            final DtnUri destination = DtnUri.builder()
+                    .host(bundleHost)
+                    .application(Addresses.APP_PREFIX)
+                    .process(pdu.headers().get("destination"))
+                    .build();
+
+            final DtnUri source = DtnUri.builder()
+                    .host(bundleHost)
+                    .application(Addresses.APP_PREFIX)
+                    .process(pdu.headers().get("source"))
+                    .build();
+
+            bundle.setDestination(destination.toString());
+            bundle.setSource(source.toString());
             BundleFlagsAdapter flags = new BundleFlagsAdapter();
 
             flags.set(BundleFlags.DELIVERY_REPORT, true);
@@ -142,8 +159,12 @@ public final class MessageForwarder extends AbstractVerticle {
         vertx.eventBus().localConsumer(Addresses.EVENT_SOCKET_CLOSED, message -> {
             LOGGER.debug("handling {}", Addresses.EVENT_SOCKET_CLOSED);
 
+            final DtnUri.DtnUriBuilder destination = DtnUri.builder()
+                    .application(Addresses.APP_PREFIX)
+                    .process((String) message.body());
+
             BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(Addresses.DTN_PREFIX + Addresses.APP_PREFIX + message.body());
+            bundle.setDestination(destination.toString());
 
             BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
             flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
@@ -159,27 +180,47 @@ public final class MessageForwarder extends AbstractVerticle {
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
-            String localDPProxyAddress = localNodeAddress.body().toString();
-            localDPProxyAddress = node + "/" + Addresses.APP_PREFIX + localDPProxyAddress;
-            vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, localDPProxyAddress);
-            LOGGER.debug("added registration for local DP proxy {}", localDPProxyAddress);
+            String registrationAddress;
+            String nodeAddress = (String)localNodeAddress.body();
+            if (nodeAddress.startsWith(DtnUri.SCHEMA_AND_PREFIX)) {
+                registrationAddress = nodeAddress;
+            }
+            else {
+                DtnUri registrationUri = DtnUri.builder().
+                        host(node.getHost()).
+                        application(Addresses.APP_PREFIX).
+                        process(localNodeAddress.body().toString()).
+                        build();
+                registrationAddress = registrationUri.toString();
+            }
+
+            vertx.eventBus().publish(Addresses.COMMAND_ADD_REGISTRATION, registrationAddress);
+            LOGGER.debug("added registration for local DP proxy {}", registrationAddress);
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_UNREGISTER_PROXY, localNodeAddress -> {
-            String localDPProxyAddress = localNodeAddress.body().toString();
-            localDPProxyAddress = Addresses.APP_PREFIX + localDPProxyAddress;
-            vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, localDPProxyAddress);
-            LOGGER.debug("removed registration for local DP proxy {}", localDPProxyAddress);
+
+            DtnUri registrationAddress = DtnUri.builder().
+                    host(node.getHost()).
+                    application(Addresses.APP_PREFIX).
+                    process(localNodeAddress.body().toString()).
+                    build();
+
+            vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, registrationAddress.toString());
+            LOGGER.debug("removed registration for local DP proxy {}", registrationAddress.toString());
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
             //TODO: forward message
             LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
+
+        vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
+        vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.DTN_DCI_REPLY_ADDRESS);
     }
 
     private void register(BundleAdapter bundle) {
-        String channel = Helper.getChannelFromUri(bundle.getSource(), Addresses.APP_PREFIX);
+        String channel = Helper.getChannelFromUri(bundle.getSource());
         if (resolver.hasHostForChannel(channel)) return;
         String remoteHost = Helper.getDtnHostFromUri(bundle.getSource());
         resolver.registerHostForChannel(channel, remoteHost);
@@ -189,14 +230,26 @@ public final class MessageForwarder extends AbstractVerticle {
     private void sendDci(String destination, String xmlDci) {
         BundleAdapter bundle = new BundleAdapter();
         bundle.setDestination(destination);
-        bundle.setSource(node + "/" + Addresses.APP_PREFIX + Helper.getElementValue("NodeID", xmlDci));
+
+        DtnUri sourceUri = DtnUri.builder().
+                host(node.getHost()).
+                application(Addresses.APP_PREFIX).
+                process(Helper.getElementValue("NodeID", xmlDci)).
+                build();
+
+        bundle.setSource(sourceUri.toString());
 
         BundleFlagsAdapter flags = new BundleFlagsAdapter();
         flags.set(BundleFlags.DESTINATION_IS_SINGLETON, false);
         flags.set(BundleFlags.DELETION_REPORT, true);
         bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flags.getFlags()));
 
-        bundle.setPrimaryBlockField(BundleFields.REPORT_TO, node + "/" + Addresses.DTN_REPORT_TO_ADDRESS);
+        DtnUri reportToUri = DtnUri.builder().
+                host(node.getHost()).
+                application(Addresses.DTN_REPORT_TO_ADDRESS).
+                build();
+
+        bundle.setPrimaryBlockField(BundleFields.REPORT_TO, reportToUri.toString());
 
         BlockAdapter payload = new BlockAdapter();
         payload.setPlainContent(xmlDci);

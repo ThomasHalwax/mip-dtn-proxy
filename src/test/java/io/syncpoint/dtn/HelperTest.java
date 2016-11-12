@@ -59,12 +59,12 @@ public class HelperTest {
 
     @Test
     public void address$path() {
-        Assert.assertEquals("111000111", Helper.getChannelFromUri(SUPERVISOR_ADDRESS, Addresses.APP_PREFIX));
+        Assert.assertEquals("/dem/111000111", Helper.getChannelFromUri(SUPERVISOR_ADDRESS));
     }
 
     @Test
     public void address$channel() {
-        Assert.assertEquals("111000111/888999888", Helper.getChannelFromUri(CHANNEL_ADDRESS, Addresses.APP_PREFIX));
+        Assert.assertEquals("/dem/111000111/888999888", Helper.getChannelFromUri(CHANNEL_ADDRESS));
     }
 
 

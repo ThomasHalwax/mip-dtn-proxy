@@ -39,7 +39,7 @@ public final class DataProviderListener extends AbstractVerticle {
 
         listener.listen(this.listenerPort, "0.0.0.0", instance -> {
             if (instance.succeeded()) {
-                LOGGER.info("DataProviderListener ready");
+                LOGGER.info("DataProviderListener listening on port {}", instance.result().actualPort());
                 startup.complete();
             }
             else {

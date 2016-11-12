@@ -16,7 +16,7 @@ public final class BundleSerializer {
 
     public static Buffer serialize(JsonObject rawBundle) {
         BundleAdapter bundle = new BundleAdapter(rawBundle);
-        final String channelFromUri = Helper.getChannelFromUri(bundle.getPrimaryBlockField(BundleFields.SOURCE), "");
+        final String channelFromUri = Helper.getChannelFromUri(bundle.getPrimaryBlockField(BundleFields.SOURCE));
 
 
         Buffer buffer = Buffer.buffer();

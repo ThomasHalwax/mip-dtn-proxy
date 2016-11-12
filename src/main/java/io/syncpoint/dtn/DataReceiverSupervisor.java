@@ -8,6 +8,8 @@ import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,14 +68,26 @@ public final class DataReceiverSupervisor extends AbstractVerticle {
                 return;
             }
 
+            URI peerUri;
+            try {
+                peerUri = new URI(message.headers().get("source"));
+            } catch (URISyntaxException e) {
+                LOGGER.warn("source is not a valid URI: {}", e.getMessage());
+                return;
+            }
+
             JsonObject config = new JsonObject();
             config.put("connectionInfo", knownDemInstances.get(destinationNodeId));
+            config.put("peerId", peerUri.getPath());
             config.put("tOpenRequest", tOpenRequest);
 
             DeploymentOptions drOptions = new DeploymentOptions().setConfig(config);
             vertx.deployVerticle(DataReceiverProxy.class.getName(), drOptions, deployment -> {
                 if (deployment.failed()) {
                     LOGGER.warn("failed to deploy new verticle for T_OPEN_REQ: {}", deployment.cause().getMessage());
+                }
+                else {
+                    LOGGER.debug("deployed verticle for peerId {}", peerUri.getPath());
                 }
             });
         };

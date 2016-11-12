@@ -52,8 +52,6 @@ public final class DtnApiHandler extends AbstractVerticle {
                 dtnSocket.handler(recordParser::handle);
                 send("protocol extended");
                 send("nodename", expectedNodenameResponse());
-                send("registration add " + Addresses.DTN_DCI_ANNOUNCE_ADDRESS);
-                send("registration add " + Addresses.DTN_DCI_REPLY_ADDRESS);
                 send("endpoint add " + Addresses.DTN_REPORT_TO_ADDRESS);
                 started.complete();
             }
