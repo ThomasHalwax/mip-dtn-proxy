@@ -49,7 +49,6 @@ public final class DciListener extends AbstractVerticle {
            if (instance.succeeded()) {
                LOGGER.debug("dci listener listens on {}", listeningSocket.localAddress().toString());
 
-
                listeningSocket.handler(datagramPacket -> {
                    if (myIpAddresses.keySet().contains(datagramPacket.sender().host())) {
                        LOGGER.debug("ignoring broadcast from myself");

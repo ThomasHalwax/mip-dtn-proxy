@@ -71,11 +71,8 @@ public final class MessageForwarder extends AbstractVerticle {
                 default: {
                     // possible uris:
                     // dtn://dem/nodeID (for T_OPEN_REQUESTS)
-                    // dtn://myhost.name/sender/localReceiver
+                    // dtn://myhost.name/dem/SESSION-ID/sender/localReceiver
                     eventBusDestinationAddress = destinationEndpoint.getPath();
-                    if (eventBusDestinationAddress.startsWith("/")) {
-                        eventBusDestinationAddress = eventBusDestinationAddress.substring(1);
-                    }
                     break;
                 }
             }
@@ -90,7 +87,7 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.blockIterator().forEachRemaining(b -> {
                 BlockAdapter block = new BlockAdapter((JsonObject)b);
                 // TODO: only send payload block
-                vertx.eventBus().publish(finalDestinationAddress, block.getEncodedContent());
+                vertx.eventBus().publish(finalDestinationAddress, block.getEncodedContent(), bundleReceivedOptions);
             });
         });
 
@@ -153,15 +150,16 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.addBlock(payload.getBlock());
 
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
-            LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_SEND_TMAN_PDU);
+                                                                LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_SEND_TMAN_PDU);
         });
 
         vertx.eventBus().localConsumer(Addresses.EVENT_SOCKET_CLOSED, message -> {
             LOGGER.debug("handling {}", Addresses.EVENT_SOCKET_CLOSED);
 
-            final DtnUri.DtnUriBuilder destination = DtnUri.builder()
+            final DtnUri destination = DtnUri.builder()
                     .application(Addresses.APP_PREFIX)
-                    .process((String) message.body());
+                    .process((String) message.body())
+                    .build();
 
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(destination.toString());
@@ -212,7 +210,7 @@ public final class MessageForwarder extends AbstractVerticle {
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
             //TODO: forward message
-            LOGGER.debug("handling {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
+            LOGGER.debug("handling and currently ignoring {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
         });
 
         vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.DTN_DCI_ANNOUNCE_ADDRESS);

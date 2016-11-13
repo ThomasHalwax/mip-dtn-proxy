@@ -16,12 +16,12 @@ public final class BundleSerializer {
 
     public static Buffer serialize(JsonObject rawBundle) {
         BundleAdapter bundle = new BundleAdapter(rawBundle);
-        final String channelFromUri = Helper.getChannelFromUri(bundle.getPrimaryBlockField(BundleFields.SOURCE));
-
+        String endpoint = Helper.getChannelFromUri(bundle.getPrimaryBlockField(BundleFields.SOURCE));
+        endpoint = Helper.removeLeadingSlash(endpoint);
 
         Buffer buffer = Buffer.buffer();
 
-        buffer.appendString("set endpoint " + channelFromUri + "\n");
+        buffer.appendString("set endpoint " + endpoint + "\n");
         buffer.appendString("bundle put plain\n");
         buffer.appendString(BundleFields.SOURCE).appendString(": ")
                 .appendString(bundle.getPrimaryBlockField(BundleFields.SOURCE)).appendString("\n");

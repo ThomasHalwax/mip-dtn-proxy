@@ -79,7 +79,7 @@ public final class DataProviderProxy extends AbstractVerticle {
             DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
             tOpenRequestOptions.addHeader("source", peerId);
             // destination must be the "common" address of the remote DEM
-            tOpenRequestOptions.addHeader("destination", destinationNodeId);
+            tOpenRequestOptions.addHeader("destination", "/" + Addresses.APP_PREFIX + "/" + destinationNodeId);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU,
                     tManPdu.getPdu().toString(),
                     tOpenRequestOptions
@@ -97,8 +97,9 @@ public final class DataProviderProxy extends AbstractVerticle {
         return pdu -> {
             LOGGER.debug("sending {} to peer {}", pdu.getPduType(), peerId);
             DeliveryOptions pduOptions = new DeliveryOptions();
-            pduOptions.addHeader("source", peerId);
-            pduOptions.addHeader("destination", peerId);
+            String peerAddress = "/" + Addresses.APP_PREFIX + "/" + peerId;
+            pduOptions.addHeader("source", peerAddress);
+            pduOptions.addHeader("destination", peerAddress);
             vertx.eventBus().publish(Addresses.COMMAND_SEND_TMAN_PDU, pdu.getPdu(), pduOptions);
         };
     }

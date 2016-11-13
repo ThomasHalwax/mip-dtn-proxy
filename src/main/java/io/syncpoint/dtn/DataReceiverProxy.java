@@ -18,8 +18,6 @@ import java.util.Base64;
 public final class DataReceiverProxy extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataReceiverProxy.class);
     private NetSocket socket;
-    //private String localEndpointAddress;
-    //private String remoteEndpointAddress;
     private Base64.Decoder decoder = Base64.getDecoder();
     private String peerId;
 
@@ -29,10 +27,6 @@ public final class DataReceiverProxy extends AbstractVerticle {
         String tOpenRequest = config().getString("tOpenRequest");
         peerId = config().getString("peerId");
 
-        /*
-        remoteEndpointAddress = Helper.getSourceNodeId(tOpenRequest) + "/" + Helper.getDestinationNodeId(tOpenRequest);
-        localEndpointAddress = Helper.getDestinationNodeId(tOpenRequest) + "/" + Helper.getSourceNodeId(tOpenRequest);
-        */
         NetClientOptions clientOptions = new NetClientOptions();
         clientOptions.setTcpKeepAlive(true);
 

@@ -52,10 +52,6 @@ public final class Helper {
     public static String getChannelFromUri(String address) {
         try {
             URI url = new URI(address);
-            //String channel = url.getPath().replace(prefix, "");
-            //if (channel.startsWith("/")) {
-            //    channel = channel.substring(1, channel.length());
-            //}
             return url.getPath();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
@@ -63,4 +59,11 @@ public final class Helper {
     }
 
 
+    public static String removeLeadingSlash(String path) {
+        if (path == null || path.length() == 0) return "";
+        if (path.startsWith("/")) {
+            return path.substring(1, path.length());
+        }
+        return path;
+    }
 }

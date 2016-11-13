@@ -11,9 +11,16 @@ public final class DtnUri {
     private DtnUri(String host, String application, String process) {
         List<String> urlChunks = new ArrayList<>();
         urlChunks.add(SCHEMA_AND_PREFIX);
-        if (host != null) urlChunks.add(host);
-        if (application != null) urlChunks.add(application);
-        if (process != null) urlChunks.add(process);
+        if (host != null) urlChunks.add(Helper.removeLeadingSlash(host));
+        if (application != null) urlChunks.add(Helper.removeLeadingSlash(application));
+        if (process != null) {
+            process = Helper.removeLeadingSlash(process);
+            if (process.startsWith(application)) {
+                process = process.substring(application.length(), process.length());
+                process = Helper.removeLeadingSlash(process);
+            }
+            urlChunks.add(process);
+        }
 
         StringJoiner joiner = new StringJoiner("/");
         urlChunks.forEach(joiner::add);
@@ -52,6 +59,7 @@ public final class DtnUri {
         public DtnUri build() {
             return new DtnUri(this.host, this.application, this.process);
         }
-
     }
+
+
 }
