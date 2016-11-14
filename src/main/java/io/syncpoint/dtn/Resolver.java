@@ -30,6 +30,13 @@ public final class Resolver {
         }
     }
 
+    public void unregisterChannel(String channel) {
+        final String removed = registry.remove(channel);
+        if (removed == null) {
+            LOGGER.warn("cannot unregister non-existing channel: {}", channel);
+        }
+    }
+
     public String getHostForChannel(String channel) {
 
         String host = registry.get(channel);

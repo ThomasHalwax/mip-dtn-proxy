@@ -6,6 +6,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetClientOptions;
@@ -20,6 +21,7 @@ public final class DataReceiverProxy extends AbstractVerticle {
     private NetSocket socket;
     private Base64.Decoder decoder = Base64.getDecoder();
     private String peerId;
+    private MessageConsumer<Object> eventbusConsumer;
 
     @Override
     public void start(Future<Void> startup) {
@@ -35,7 +37,8 @@ public final class DataReceiverProxy extends AbstractVerticle {
             if (attempt.succeeded()) {
                 socket = attempt.result();
                 LOGGER.debug("connected to DEM instance");
-                vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
+                eventbusConsumer = vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
+                LOGGER.debug("consuming messages on address {}", eventbusConsumer.address());
                 vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, peerId);
 
                 socket.handler(socketToRemoteHandler());
@@ -80,7 +83,10 @@ public final class DataReceiverProxy extends AbstractVerticle {
 
     private Handler<Void> socketClosedHandler() {
         return undef -> {
-            LOGGER.warn("socket closed");
+            LOGGER.info("socket closed");
+            if (eventbusConsumer != null) {
+                eventbusConsumer.unregister();
+            }
             vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
             vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, peerId);
             vertx.undeploy(deploymentID(), result -> {

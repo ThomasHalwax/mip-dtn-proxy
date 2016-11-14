@@ -104,6 +104,8 @@ public final class MessageForwarder extends AbstractVerticle {
                     .process((String) message.body())
                     .build();
 
+            resolver.unregisterChannel((String) message.body());
+
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(destination.toString());
             bundle.setSource((String)message.body());
@@ -148,7 +150,7 @@ public final class MessageForwarder extends AbstractVerticle {
                     .build();
 
             final DtnUri source = DtnUri.builder()
-                    .host(bundleHost)
+                    .host(node.getHost())
                     .application(Addresses.APP_PREFIX)
                     .process(pdu.headers().get("source"))
                     .build();
@@ -183,7 +185,7 @@ public final class MessageForwarder extends AbstractVerticle {
                 DtnUri registrationUri = DtnUri.builder().
                         host(node.getHost()).
                         application(Addresses.APP_PREFIX).
-                        process(localNodeAddress.body().toString()).
+                        process(nodeAddress).
                         build();
                 registrationAddress = registrationUri.toString();
             }
@@ -197,7 +199,7 @@ public final class MessageForwarder extends AbstractVerticle {
             DtnUri registrationAddress = DtnUri.builder().
                     host(node.getHost()).
                     application(Addresses.APP_PREFIX).
-                    process(localNodeAddress.body().toString()).
+                    process((String)localNodeAddress.body()).
                     build();
 
             vertx.eventBus().publish(Addresses.COMMAND_DELETE_REGISTRATION, registrationAddress.toString());
@@ -205,8 +207,34 @@ public final class MessageForwarder extends AbstractVerticle {
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_SEND_CLOSE_SOCKET, message -> {
-            //TODO: forward message
-            LOGGER.debug("handling and currently ignoring {}", Addresses.COMMAND_SEND_CLOSE_SOCKET);
+            String peerId = (String)message.body();
+            LOGGER.debug("handling {} for {}", Addresses.COMMAND_SEND_CLOSE_SOCKET, peerId);
+
+            final String remoteHost = resolver.getHostForChannel(peerId);
+            final DtnUri destination = DtnUri.builder()
+                    .host(remoteHost)
+                    .application(Addresses.APP_PREFIX)
+                    .process(peerId)
+                    .build();
+
+            resolver.unregisterChannel(peerId);
+
+            BundleAdapter bundle = new BundleAdapter();
+            bundle.setDestination(destination.toString());
+            bundle.setSource(peerId);
+
+            BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
+            flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flagsAdapter.getFlags()));
+
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
+
+            BlockAdapter payload = new BlockAdapter();
+            payload.setPlainContent("CLOSE_SOCKET");
+            bundle.addBlock(payload.getBlock());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
+
         });
 
         vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.DTN_DCI_ANNOUNCE_ADDRESS);

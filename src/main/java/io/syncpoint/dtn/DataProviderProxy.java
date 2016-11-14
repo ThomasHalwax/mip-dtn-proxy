@@ -5,6 +5,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.net.NetSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ public final class DataProviderProxy extends AbstractVerticle {
     private String sourceNodeId;
     private String destinationNodeId;
     private String peerId;
+    private MessageConsumer<Object> eventbusConsumer;
 
     public DataProviderProxy(NetSocket clientSocket) {
         this.clientSocket = clientSocket;
@@ -43,7 +45,10 @@ public final class DataProviderProxy extends AbstractVerticle {
             // only perform unregister is there was an T_OPEN_REQ before
             if (peerId != null) {
                 vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
-                vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, peerId);
+                vertx.eventBus().publish(Addresses.COMMAND_SEND_CLOSE_SOCKET, "/" + Addresses.APP_PREFIX + "/"+ peerId);
+            }
+            if (eventbusConsumer != null) {
+                eventbusConsumer.unregister();
             }
             vertx.undeploy(deploymentID());
         });
@@ -73,7 +78,9 @@ public final class DataProviderProxy extends AbstractVerticle {
             // peerId is a unique URI for identifying the communication between two peers
             peerId = destinationNodeId + "/" + sourceNodeId + "/" + deploymentID();
 
-            vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
+            eventbusConsumer = vertx.eventBus().localConsumer("/" + Addresses.APP_PREFIX + "/" + peerId, remoteToSocketHandler());
+            LOGGER.debug("consuming messages on address {}", eventbusConsumer.address());
+
             vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, peerId);
 
             DeliveryOptions tOpenRequestOptions = new DeliveryOptions();
