@@ -26,12 +26,10 @@ public final class MessageForwarder extends AbstractVerticle {
                 } catch (URISyntaxException e) {
                     LOGGER.warn("invalid nodename", e.getMessage());
                     startup.fail(e);
-                    return;
                 }
             } else {
                 LOGGER.warn("no response for nodename query: {}", response.cause().getMessage());
                 startup.fail(response.cause());
-                return;
             }
         });
 
@@ -56,7 +54,7 @@ public final class MessageForwarder extends AbstractVerticle {
                 return;
             }
 
-            register(bundle);
+            addToResolver(bundle);
 
             String eventBusDestinationAddress;
             switch (bundle.getDestination()) {
@@ -69,9 +67,7 @@ public final class MessageForwarder extends AbstractVerticle {
                     break;
                 }
                 default: {
-                    // possible uris:
-                    // dtn://dem/nodeID (for T_OPEN_REQUESTS)
-                    // dtn://myhost.name/dem/SESSION-ID/sender/localReceiver
+                    // a relative address which will be consumed on the eventbus
                     eventBusDestinationAddress = destinationEndpoint.getPath();
                     break;
                 }
@@ -79,7 +75,6 @@ public final class MessageForwarder extends AbstractVerticle {
 
             LOGGER.debug("forwarding base64 encoded message to local address {}", eventBusDestinationAddress);
             DeliveryOptions bundleReceivedOptions = new DeliveryOptions();
-            // will start with a slash "/...."
             bundleReceivedOptions.addHeader("source", sourceEndpoint.getPath());
             bundleReceivedOptions.addHeader("destination", destinationEndpoint.getPath());
 
@@ -92,13 +87,38 @@ public final class MessageForwarder extends AbstractVerticle {
         });
 
         // handle a locally received DCI
-        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport -> {
-            sendDci(Addresses.DTN_DCI_ANNOUNCE_ADDRESS, (String)transport.body());
-        });
+        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_ANNOUNCED, transport ->
+                sendDci(Addresses.DTN_DCI_ANNOUNCE_ADDRESS, (String)transport.body()));
 
         // handle a locally received DCI
-        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_REPLIED, transport -> {
-            sendDci(Addresses.DTN_DCI_REPLY_ADDRESS, (String)transport.body());
+        vertx.eventBus().localConsumer(Addresses.EVENT_DCI_REPLIED, transport ->
+                sendDci(Addresses.DTN_DCI_REPLY_ADDRESS, (String)transport.body()));
+
+        vertx.eventBus().localConsumer(Addresses.EVENT_SOCKET_CLOSED, message -> {
+            LOGGER.debug("handling {} from channel {}", Addresses.EVENT_SOCKET_CLOSED, message.body());
+
+            final String remoteHost = resolver.getHostForChannel((String) message.body());
+            final DtnUri destination = DtnUri.builder()
+                    .host(remoteHost)
+                    .application(Addresses.APP_PREFIX)
+                    .process((String) message.body())
+                    .build();
+
+            BundleAdapter bundle = new BundleAdapter();
+            bundle.setDestination(destination.toString());
+            bundle.setSource((String)message.body());
+
+            BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
+            flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
+            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flagsAdapter.getFlags()));
+
+            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
+
+            BlockAdapter payload = new BlockAdapter();
+            payload.setPlainContent("CLOSE_SOCKET");
+            bundle.addBlock(payload.getBlock());
+
+            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
         });
 
         /**
@@ -150,31 +170,7 @@ public final class MessageForwarder extends AbstractVerticle {
             bundle.addBlock(payload.getBlock());
 
             vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
-                                                                LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_SEND_TMAN_PDU);
-        });
-
-        vertx.eventBus().localConsumer(Addresses.EVENT_SOCKET_CLOSED, message -> {
-            LOGGER.debug("handling {}", Addresses.EVENT_SOCKET_CLOSED);
-
-            final DtnUri destination = DtnUri.builder()
-                    .application(Addresses.APP_PREFIX)
-                    .process((String) message.body())
-                    .build();
-
-            BundleAdapter bundle = new BundleAdapter();
-            bundle.setDestination(destination.toString());
-
-            BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
-            flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
-            bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flagsAdapter.getFlags()));
-
-            bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
-
-            BlockAdapter payload = new BlockAdapter();
-            payload.setPlainContent("CLOSE_SOCKET");
-            bundle.addBlock(payload.getBlock());
-
-            vertx.eventBus().publish(Addresses.COMMAND_SEND_BUNDLE, bundle.getBundle());
+            LOGGER.debug("consumed {} and forwarded bundle", Addresses.COMMAND_SEND_TMAN_PDU);
         });
 
         vertx.eventBus().localConsumer(Addresses.COMMAND_REGISTER_PROXY, localNodeAddress -> {
@@ -217,7 +213,7 @@ public final class MessageForwarder extends AbstractVerticle {
         vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, Addresses.DTN_DCI_REPLY_ADDRESS);
     }
 
-    private void register(BundleAdapter bundle) {
+    private void addToResolver(BundleAdapter bundle) {
         String channel = Helper.getChannelFromUri(bundle.getSource());
         if (resolver.hasHostForChannel(channel)) return;
         String remoteHost = Helper.getDtnHostFromUri(bundle.getSource());

@@ -63,7 +63,7 @@ public final class DataReceiverProxy extends AbstractVerticle {
         TmanPduParser parser = new TmanPduParser();
 
         parser.handler(tManPdu -> {
-            LOGGER.debug("will send {} to remote", tManPdu.toString());
+            LOGGER.debug("will send {} to remote", tManPdu.getPduType().toString());
             DeliveryOptions sendPduOptions = new DeliveryOptions();
             sendPduOptions.addHeader("source", peerId);
             sendPduOptions.addHeader("destination", peerId);

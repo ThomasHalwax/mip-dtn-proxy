@@ -6,6 +6,7 @@ public final class Addresses {
     }
 
     public static final String DTN_PREFIX = "dtn://";
+    public static final String DTN_BROADCAST_HOST = "broadcast.any";
     public static final String APP_PREFIX = "dem";
 
     // DTN related addresses

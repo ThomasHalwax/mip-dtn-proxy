@@ -16,16 +16,45 @@ public final class Resolver {
     public void registerHostForChannel(String channel, String host) {
         try {
             URI uri = new URI(host);
-            registry.put(channel, uri.getHost());
-            LOGGER.debug("added channel {} will resolve to host {}", channel, uri.getHost());
+            if (uri.isAbsolute()) {
+                registry.put(channel, uri.getHost());
+                LOGGER.debug("added channel {} will resolve to host {}", channel, uri.getHost());
+            }
+            else {
+                registry.put(channel, host);
+                LOGGER.debug("added channel {} will resolve to host {}", channel, host);
+            }
+
         } catch (URISyntaxException e) {
             LOGGER.warn("{} is not a valid host");
         }
     }
 
     public String getHostForChannel(String channel) {
-        LOGGER.debug("returning host {} for channel {}", registry.get(channel), channel);
-        return registry.get(channel);
+
+        String host = registry.get(channel);
+        if (host != null) {
+            LOGGER.debug("returning host {} for channel {}", host, channel);
+            return host;
+        }
+
+        final String[] pathElements = channel.split("/");
+        String accumulator = "";
+
+        for (int i=0; i < pathElements.length; i++) {
+            accumulator = accumulator + "/" + pathElements[i];
+            if (accumulator.equals("/")) {
+                accumulator = "";
+                continue;}
+            if (registry.containsKey(accumulator)) {
+                LOGGER.debug("found host for shortest path component {}", accumulator);
+                return registry.get(accumulator);
+            }
+            else {
+                LOGGER.debug("nothing found for accumulated channel {}", accumulator);
+            }
+        }
+        return null;
     }
 
     public boolean hasHostForChannel(String channel) {

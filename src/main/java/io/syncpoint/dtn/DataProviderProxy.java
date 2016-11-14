@@ -71,7 +71,7 @@ public final class DataProviderProxy extends AbstractVerticle {
 
             LOGGER.debug("received T_OPEN_REQ from {} to {}", sourceNodeId, destinationNodeId);
             // peerId is a unique URI for identifying the communication between two peers
-            peerId = deploymentID() + "/" + sourceNodeId + "/" + destinationNodeId;
+            peerId = destinationNodeId + "/" + sourceNodeId + "/" + deploymentID();
 
             vertx.eventBus().localConsumer(peerId, remoteToSocketHandler());
             vertx.eventBus().publish(Addresses.COMMAND_REGISTER_PROXY, peerId);
