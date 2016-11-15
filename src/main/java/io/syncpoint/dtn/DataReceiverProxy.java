@@ -56,9 +56,16 @@ public final class DataReceiverProxy extends AbstractVerticle {
 
     private Handler<Message<Object>> remoteToSocketHandler() {
         return encodedPdu -> {
-            LOGGER.debug("sending PDU to socket");
-            final byte[] pdu = decoder.decode((String) encodedPdu.body());
-            socket.write(Buffer.buffer(pdu));
+            Buffer pdu = Buffer.buffer(decoder.decode((String) encodedPdu.body()));
+            if ("CLOSE_SOCKET".equals(pdu.toString())) {
+                LOGGER.debug("closing socket");
+                socket.closeHandler(closeSocketOnRemoteEventHandler());
+                socket.end();
+            }
+            else {
+                LOGGER.debug("sending {} to socket", new TManPdu(pdu).getPduType());
+                socket.write(pdu);
+            }
         };
     }
 
@@ -89,6 +96,20 @@ public final class DataReceiverProxy extends AbstractVerticle {
             }
             vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
             vertx.eventBus().publish(Addresses.EVENT_SOCKET_CLOSED, peerId);
+            vertx.undeploy(deploymentID(), result -> {
+                if (result.failed()) {
+                    LOGGER.warn("failed to un-deploy: {}", result.cause().getMessage());
+                }
+            });
+        };
+    }
+
+    private Handler<Void> closeSocketOnRemoteEventHandler() {
+        return undef -> {
+            if (eventbusConsumer != null) {
+                eventbusConsumer.unregister();
+            }
+            vertx.eventBus().publish(Addresses.COMMAND_UNREGISTER_PROXY, peerId);
             vertx.undeploy(deploymentID(), result -> {
                 if (result.failed()) {
                     LOGGER.warn("failed to un-deploy: {}", result.cause().getMessage());

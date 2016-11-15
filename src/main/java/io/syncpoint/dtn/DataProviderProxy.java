@@ -117,6 +117,7 @@ public final class DataProviderProxy extends AbstractVerticle {
             final byte[] message = decoder.decode((String) encodedMessage.body());
             if ("CLOSE_SOCKET".equals(new String(message))) {
                 LOGGER.info("closing local socket due to a command from a remote proxy");
+                // TODO: replace close socket handler to avoid sending a colose to the peer
                 clientSocket.end();
                 return;
             }

@@ -217,14 +217,21 @@ public final class MessageForwarder extends AbstractVerticle {
                     .process(peerId)
                     .build();
 
+            final DtnUri source = DtnUri.builder()
+                    .host(node.getHost())
+                    .application(Addresses.APP_PREFIX)
+                    .process(peerId)
+                    .build();
+
             resolver.unregisterChannel(peerId);
 
             BundleAdapter bundle = new BundleAdapter();
             bundle.setDestination(destination.toString());
-            bundle.setSource(peerId);
+            bundle.setSource(source.toString());
 
             BundleFlagsAdapter flagsAdapter = new BundleFlagsAdapter();
             flagsAdapter.set(BundleFlags.DELIVERY_REPORT, true);
+            flagsAdapter.set(BundleFlags.DESTINATION_IS_SINGLETON, true);
             bundle.setPrimaryBlockField(BundleFields.BUNDLE_FLAGS, String.valueOf(flagsAdapter.getFlags()));
 
             bundle.setPrimaryBlockField(BundleFields.REPORT_TO, Addresses.DTN_REPORT_TO_ADDRESS);
