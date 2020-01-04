@@ -1,3 +1,5 @@
+_This code was written as part of my bachelor's thesis. Please find the abstract below._
+
 # mip-dtn-proxy
 A proxy for Military Data Communication over Delay- and Disruption-Tolerant Networks
 
