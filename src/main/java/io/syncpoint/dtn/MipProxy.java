@@ -47,8 +47,8 @@ public final class MipProxy extends AbstractVerticle{
     private void deployDependendVerticles(JsonObject config) {
         final Map<Class, DeploymentOptions> verticles = new HashMap<>();
 
-        verticles.put(DciListener.class, new DeploymentOptions().setConfig(config.getJsonObject("dci")));
-        verticles.put(DataProviderListener.class, new DeploymentOptions().setConfig(config.getJsonObject("dem")));
+        verticles.put(DciHandler.class, new DeploymentOptions().setConfig(config.getJsonObject("dci")));
+        verticles.put(DataProviderSupervisor.class, new DeploymentOptions().setConfig(config.getJsonObject("dem")));
         verticles.put(MessageForwarder.class, new DeploymentOptions());
         verticles.put(DataReceiverSupervisor.class, new DeploymentOptions());
 

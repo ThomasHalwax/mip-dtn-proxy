@@ -20,11 +20,11 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-public final class DciListener extends AbstractVerticle {
+public final class DciHandler extends AbstractVerticle {
 
     public static final String DEFAULT_DCI_HOST = "0.0.0.0";
     public static final int DEFAULT_DCI_PORT = 13152;
-    private static final Logger LOGGER = LoggerFactory.getLogger(DciListener.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DciHandler.class);
 
     // KEY = IP Address, VALUES = Broadcast Address
     private final Map<String, String> myIpAddresses = getLocalIpAddresses();
