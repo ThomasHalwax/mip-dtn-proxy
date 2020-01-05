@@ -1,6 +1,6 @@
 _This code was written as part of my bachelor's thesis. Please find the abstract below._
 
-After implementing and texting the code there is at least one major thing to improve. Instead of handling all connections to the proxy over one connection to the IBRDTN daemon echo proxy connection should be mapped to one corresponding connection to the daemon.
+After implementing and testing the code there is at least one major thing to improve. Instead of handling all connections to the proxy over one connection to the IBRDTN daemon echo proxy connection should be mapped to one corresponding connection to the daemon.
 
 # mip-dtn-proxy
 Bachelor Thesis #1: __A proxy for Military Data Communication over Delay- and Disruption-Tolerant Networks__
